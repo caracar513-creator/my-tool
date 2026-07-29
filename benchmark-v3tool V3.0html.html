@@ -1,0 +1,3827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Benchmark V3 标注工具 V3.0</title>
+  <!-- KaTeX CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+/* ========== Benchmark V3 标注工具样式 ========== */
+.agi-hidden { display: none !important; }
+
+/* 图片显示区域 */
+.agi-image-container {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  background: #f5f5f5;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.agi-image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.agi-image {
+  display: block;
+  max-width: 100%;
+  user-select: none;
+}
+/* PDF 翻页工具栏 */
+.agi-pdf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #555;
+}
+.agi-pdf-pageinfo {
+  min-width: 50px;
+  text-align: center;
+  font-weight: 500;
+}
+.agi-pdf-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+}
+.agi-pdf-zoom span {
+  min-width: 36px;
+  text-align: center;
+}
+.agi-pdf-canvas {
+  display: block;
+  max-width: 100%;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 标注框 */
+.agi-annotation-box {
+  position: absolute;
+  border: 2px solid rgba(102, 126, 234, 0.8);
+  background: rgba(102, 126, 234, 0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+.agi-annotation-box:hover {
+  border-color: rgba(102, 126, 234, 1);
+  background: rgba(102, 126, 234, 0.2);
+  box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
+  z-index: 10;
+}
+.agi-annotation-box.agi-active {
+  border-color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.15);
+  box-shadow: 0 0 12px rgba(255, 77, 79, 0.6);
+  z-index: 20;
+}
+.agi-annotation-box.agi-box-highlight {
+  animation: agi-box-flash 1.5s ease-out 1;
+}
+@keyframes agi-box-flash {
+  0% { box-shadow: 0 0 20px rgba(255, 77, 79, 0.8); border-color: #ff4d4f; }
+  100% { box-shadow: none; border-color: rgba(102, 126, 234, 0.8); }
+}
+
+/* 标注框序号标签 */
+.agi-box-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background: rgba(102, 126, 234, 0.9);
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.agi-annotation-box.agi-active .agi-box-label {
+  background: #ff4d4f;
+}
+
+/* 面板 - 使用absolute定位兼容iframe */
+.agi-panel {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 440px;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #333;
+  overflow: hidden;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  min-width: 360px;
+  z-index: 2147483647;
+}
+.agi-panel.agi-dragging { user-select: none; }
+
+/* 面板头 */
+.agi-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  cursor: grab;
+}
+.agi-panel-title { font-weight: 600; font-size: 15px; }
+.agi-panel-title small { font-weight: 400; opacity: 0.8; font-size: 12px; margin-left: 6px; }
+.agi-panel-actions { display: flex; gap: 6px; }
+.agi-panel-actions button {
+  width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: rgba(255,255,255,0.2); color: #fff;
+  font-size: 17px; cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.agi-panel-actions button:hover { background: rgba(255,255,255,0.35); }
+
+/* 面板体 */
+.agi-panel-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 按钮组 */
+.agi-btn-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.agi-btn {
+  padding: 6px 12px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: opacity 0.2s;
+}
+.agi-btn:hover { opacity: 0.85; }
+.agi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.agi-btn-primary { background: #667eea; color: #fff; }
+.agi-btn-success { background: #52c41a; color: #fff; }
+.agi-btn-warning { background: #faad14; color: #fff; }
+.agi-btn-secondary { background: #f0f0f0; color: #666; }
+.agi-btn-sm { padding: 3px 8px; font-size: 12px; }
+/* 按钮扩展组合：主按钮 + 扩展选项融为一体 */
+.agi-btn-ext-wrapper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.agi-btn-ext-wrapper > .agi-btn {
+  border-radius: 0;
+  border-right: none;
+}
+.agi-btn-ext-wrapper > .agi-btn:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.agi-btn-ext-label {
+  padding: 3px 6px;
+  font-size: 11px;
+  background: #e8e8e8;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+.agi-btn-ext-label input[type="checkbox"] {
+  margin: 0;
+  width: 11px;
+  height: 11px;
+  cursor: pointer;
+}
+.agi-btn-ext-label input[type="number"] {
+  width: 32px;
+  font-size: 11px;
+  padding: 0 2px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  text-align: center;
+  height: 18px;
+  box-sizing: border-box;
+}
+
+/* 状态 */
+.agi-status {
+  padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;
+  font-size: 13px; word-break: break-all;
+}
+.agi-status-success { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.agi-status-error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+.agi-status-info { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+
+/* 全局字段 */
+.agi-global-fields { margin-bottom: 10px; }
+.agi-field-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.agi-field-row label { font-weight: 600; font-size: 13px; white-space: nowrap; }
+.agi-input-sm {
+  padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px;
+  font-size: 13px; width: 80px;
+}
+
+/* box 列表 */
+.agi-box-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* box 项 */
+.agi-box-item {
+  background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px;
+  padding: 10px 12px; transition: background 0.3s, border-left 0.3s;
+  cursor: pointer;
+}
+.agi-box-item:hover {
+  background: #f0f0f0;
+}
+.agi-box-item.agi-item-active {
+  background: #e6f7ff;
+  border-color: #1890ff;
+  box-shadow: 0 0 8px rgba(24, 144, 255, 0.3);
+}
+.agi-box-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.agi-box-title { font-weight: 600; font-size: 13px; color: #667eea; }
+.agi-box-coords { font-size: 11px; color: #999; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* box 字段布局 */
+.agi-box-fields {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.agi-box-row { display: flex; gap: 12px; }
+.agi-box-row .agi-box-field { flex: 1; }
+.agi-box-field { display: flex; align-items: center; gap: 4px; }
+.agi-box-field label { font-size: 12px; color: #888; white-space: nowrap; min-width: auto; }
+.agi-box-field input[type="number"] {
+  width: 50px; padding: 3px 5px; border: 1px solid #d9d9d9;
+  border-radius: 4px; font-size: 13px;
+}
+.agi-box-field input[type="text"] {
+  padding: 3px 5px; border: 1px solid #d9d9d9;
+  border-radius: 4px; font-size: 13px;
+}
+.agi-box-field select {
+  padding: 3px 5px; border: 1px solid #d9d9d9;
+  border-radius: 4px; font-size: 13px; max-width: 120px;
+}
+.agi-full-width { width: 100%; flex-direction: column; align-items: flex-start; }
+.agi-full-width label { margin-bottom: 2px; }
+
+/* text 区域样式 */
+.agi-text-wrap { width: 100%; position: relative; }
+.agi-field-text {
+  width: 100%; min-height: 32px;
+  padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 4px;
+  font-size: 13px; font-family: "SFMono-Regular", Consolas, monospace;
+  resize: vertical; overflow-y: auto; box-sizing: border-box;
+  line-height: 1.5; word-break: break-all;
+}
+.agi-text-actions {
+  display: flex; align-items: center; gap: 4px; margin-top: 4px;
+}
+
+/* 一键复制按钮 */
+.agi-btn-copy-text {
+  background: #f5f5f5; border: 1px solid #d9d9d9; cursor: pointer;
+  border-radius: 4px; font-size: 13px; padding: 2px 6px;
+}
+.agi-btn-copy-text:hover { background: #e8e8e8; }
+
+/* 问题 badge */
+.agi-issue-badge {
+  font-size: 12px; padding: 1px 6px; border-radius: 10px;
+  cursor: pointer; white-space: nowrap; margin-left: auto;
+}
+.agi-issue-error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+.agi-issue-info { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+
+/* 问题面板 */
+.agi-text-issues {
+  margin-top: 6px; padding: 8px 10px;
+  background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px;
+  font-size: 12px;
+}
+.agi-issues-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.agi-btn-fix-all { background: #52c41a; color: #fff; }
+.agi-btn-undo { background: #faad14; color: #fff; }
+.agi-issue-item { padding: 2px 0; }
+.agi-issue-item-error { color: #ff4d4f; }
+.agi-issue-item-info { color: #1890ff; }
+
+/* 警告 badge（顺时针检测） */
+.agi-warn-badge {
+  font-size: 11px; padding: 1px 5px; border-radius: 4px;
+  background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7;
+  margin-left: 6px; cursor: help;
+}
+
+/* attach badge */
+.agi-attach-badge { margin-left: 6px; }
+.agi-attach-badge-item {
+  display: inline-block; font-size: 11px; padding: 1px 5px;
+  border-radius: 8px; margin-right: 3px; color: #fff;
+  background: #667eea; cursor: default;
+}
+
+/* 关联组高亮 */
+.agi-box-item.agi-group-highlight {
+  animation: agi-item-flash 1.5s ease-out 1;
+}
+@keyframes agi-item-flash {
+  0% { background: #667eea; border-color: #667eea; box-shadow: 0 0 12px rgba(102,126,234,0.5); }
+  100% { background: #fafafa; border-color: #e8e8e8; box-shadow: none; }
+}
+
+/* 结果区域 */
+.agi-result-area {
+  margin-top: 10px; padding: 10px; background: #f9f9f9;
+  border: 1px solid #e8e8e8; border-radius: 8px;
+}
+.agi-result-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.agi-result-header h3 { margin: 0; font-size: 14px; flex: 1; }
+.agi-result-json {
+  width: 100%; height: 200px; padding: 8px;
+  font-family: monospace; font-size: 12px;
+  border: 1px solid #d9d9d9; border-radius: 4px;
+  resize: vertical; box-sizing: border-box;
+}
+
+/* 导入区域 */
+.agi-import-area { margin-top: 10px; }
+.agi-import-area h3 { margin: 0 0 8px; font-size: 14px; }
+.agi-import-json {
+  width: 100%; height: 160px; padding: 8px;
+  font-family: monospace; font-size: 12px;
+  border: 1px solid #d9d9d9; border-radius: 4px;
+  resize: vertical; box-sizing: border-box; margin-bottom: 8px;
+}
+
+/* 缓存提示 */
+.agi-cache-hint {
+  text-align: center; font-size: 12px; color: #999;
+  margin-top: 8px; padding: 4px;
+}
+
+/* 滚动条美化 */
+.agi-panel-body::-webkit-scrollbar { width: 6px; }
+.agi-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15); border-radius: 3px;
+}
+.agi-panel-body::-webkit-scrollbar-track { background: transparent; }
+
+/* 数据加载弹窗 */
+.agi-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+.agi-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.agi-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.agi-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.agi-modal-close:hover { background: #f0f0f0; }
+.agi-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.agi-modal-field {
+  margin-bottom: 16px;
+}
+.agi-modal-field label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #333;
+}
+.agi-modal-field textarea {
+  width: 100%;
+  height: 200px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+.agi-modal-field input[type="text"] {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 13px;
+}
+.agi-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.agi-demo-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+/* 面板底部缩放控制 */
+.agi-panel-footer {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 6px 12px;
+  background: #f5f5f5; border-top: 1px solid #e8e8e8;
+  font-size: 12px; color: #666;
+}
+.agi-panel-footer button {
+  width: 24px; height: 24px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600;
+}
+.agi-panel-footer span {
+  min-width: 36px; text-align: center; font-size: 12px;
+}
+
+/* 渲染预览 */
+.agi-text-render {
+  margin-top: 6px; padding: 10px;
+  background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 6px;
+  font-size: 13px; line-height: 1.6; overflow: auto; max-height: 300px;
+}
+.agi-render-content { word-break: break-word; }
+.agi-render-table { overflow-x: auto; }
+.agi-render-table table {
+  border-collapse: collapse; width: 100%; font-size: 12px;
+}
+.agi-render-table td, .agi-render-table th {
+  border: 1px solid #d9d9d9; padding: 4px 8px;
+}
+.agi-formula-block {
+  display: block; background: #e6f7ff; color: #0050b3;
+  padding: 6px 10px; margin: 4px 0; border-radius: 4px;
+  font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px;
+  white-space: pre-wrap; word-break: break-all;
+}
+.agi-formula-inline {
+  background: #e6f7ff; color: #0050b3; padding: 1px 4px;
+  border-radius: 3px; font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+}
+
+/* 渲染按钮 */
+.agi-btn-render-text {
+  background: #f5f5f5; border: 1px solid #d9d9d9; cursor: pointer;
+  border-radius: 4px; font-size: 13px; padding: 2px 6px;
+}
+.agi-btn-render-text:hover { background: #e8e8e8; }
+
+/* 图片加载提示 */
+.agi-image-loading {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+.agi-image-error {
+  padding: 40px;
+  text-align: center;
+  color: #ff4d4f;
+  font-size: 14px;
+}
+
+/* 字段错误高亮 */
+.agi-field-error {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.3) !important;
+  animation: agi-shake 0.3s ease-in-out;
+}
+
+@keyframes agi-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* 必填字段星号标记 */
+.agi-required-mark {
+  color: #ff4d4f;
+  margin-left: 2px;
+  font-weight: bold;
+}
+
+/* 标注项面板中的关联组颜色圆点 */
+.agi-item-group-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* ========== 绘制模式相关样式 ========== */
+/* 绘制模式光标 */
+.agi-drawing-cursor { cursor: crosshair !important; }
+.agi-drawing-cursor .agi-annotation-box { pointer-events: none; }
+
+/* 绘制预览矩形 */
+.agi-draw-preview {
+  position: absolute;
+  border: 2px dashed #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 多边形绘制点 */
+.agi-polygon-point {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #667eea;
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 101;
+  box-shadow: 0 0 4px rgba(0,0,0,0.3);
+}
+
+/* 多边形绘制线 */
+.agi-polygon-line {
+  position: absolute;
+  height: 2px;
+  background: #667eea;
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 已保存的多边形实际展示样式 */
+.agi-annotation-polygon-line {
+  position: absolute;
+  height: 3px;
+  background: rgba(255, 77, 79, 0.85);
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 8;
+}
+.agi-annotation-polygon-point {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 77, 79, 0.85);
+  background: #fff;
+  z-index: 9;
+  box-shadow: 0 0 3px rgba(0,0,0,0.2);
+  pointer-events: auto;
+  cursor: move;
+}
+.agi-annotation-polygon-point:hover {
+  background: #ff4d4f;
+  transform: scale(1.2);
+}
+
+/* 标注框删除按钮 */
+.agi-box-delete-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  display: none;
+  z-index: 30;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.agi-box-delete-btn:hover {
+  background: #ff7875;
+  transform: scale(1.1);
+}
+.agi-annotation-box:hover .agi-box-delete-btn {
+  display: block;
+}
+
+/* 标注框缩放手柄 */
+.agi-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid #667eea;
+  border-radius: 2px;
+  z-index: 25;
+  display: none;
+}
+.agi-annotation-box.agi-active .agi-resize-handle {
+  display: block;
+}
+.agi-resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
+.agi-resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
+.agi-resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.agi-resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
+.agi-resize-n { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.agi-resize-s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.agi-resize-w { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
+.agi-resize-e { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
+
+/* 绘制模式工具栏 */
+.agi-draw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f0f2ff 0%, #e8f0ff 100%);
+  border-radius: 8px;
+  flex-wrap: wrap;
+  border: 1px solid #c5d3ff;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
+}
+.agi-draw-toolbar .agi-btn-sm {
+  font-size: 15px;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+.agi-draw-toolbar label {
+  font-size: 15px;
+  color: #445;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.agi-draw-toolbar input[type="number"] {
+  width: 52px;
+  padding: 4px 6px;
+  border: 1px solid #b0c4ff;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.agi-draw-active {
+  background: #667eea !important;
+  color: #fff !important;
+}
+
+/* 绘制提示 */
+.agi-draw-hint {
+  font-size: 14px;
+  color: #667eea;
+  padding: 6px 10px;
+  background: #e6f7ff;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: none;
+}
+.agi-draw-hint.agi-show {
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<!-- ========== 内容显示区域（支持图片和PDF） ========== -->
+<div class="agi-image-container" id="agi-image-container">
+  <!-- PDF翻页控件 -->
+  <div class="agi-pdf-toolbar agi-hidden" id="agi-pdf-toolbar">
+    <button class="agi-btn agi-btn-sm agi-btn-secondary" id="agi-pdf-prev" title="上一页">◀</button>
+    <span class="agi-pdf-pageinfo" id="agi-pdf-pageinfo">1 / 1</span>
+    <button class="agi-btn agi-btn-sm agi-btn-secondary" id="agi-pdf-next" title="下一页">▶</button>
+    <span class="agi-pdf-zoom">
+      <button class="agi-btn agi-btn-sm agi-btn-secondary" id="agi-pdf-zoom-out">−</button>
+      <span id="agi-pdf-zoom-level">100%</span>
+      <button class="agi-btn agi-btn-sm agi-btn-secondary" id="agi-pdf-zoom-in">+</button>
+    </span>
+  </div>
+  <div class="agi-image-wrapper" id="agi-image-wrapper">
+    <div class="agi-image-loading" id="agi-image-loading">等待加载内容...</div>
+    <img class="agi-image agi-hidden" id="agi-image" />
+    <canvas class="agi-pdf-canvas agi-hidden" id="agi-pdf-canvas"></canvas>
+  </div>
+</div>
+
+<!-- ========== 面板HTML ========== -->
+<div class="agi-panel" id="agi-panel">
+  <div class="agi-panel-header">
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.0</small></div>
+    <div class="agi-panel-actions">
+      <button id="agi-btn-minimize" title="最小化">−</button>
+      <button id="agi-btn-close" title="关闭">×</button>
+    </div>
+  </div>
+  <div class="agi-panel-body">
+    <div class="agi-btn-group">
+      <button id="agi-btn-export" class="agi-btn agi-btn-primary">📋 导出JSON</button>
+      <button id="agi-btn-load-data" class="agi-btn agi-btn-primary">📥 加载数据</button>
+      <button id="agi-btn-save" class="agi-btn agi-btn-success">💾 下载JSON</button>
+      <button id="agi-btn-clear-cache" class="agi-btn agi-btn-secondary">🗑️ 清除缓存</button>
+    </div>
+    <!-- 绘制模式工具栏 -->
+    <div class="agi-draw-toolbar" id="agi-draw-toolbar">
+      <span class="agi-btn-ext-wrapper">
+        <button id="agi-btn-draw-rect" class="agi-btn agi-btn-sm agi-btn-secondary">⬜ 矩形拉框</button>
+        <label class="agi-btn-ext-label"><input type="checkbox" id="agi-continuous-rect"><span>连续</span></label>
+      </span>
+      <span class="agi-btn-ext-wrapper">
+        <button id="agi-btn-draw-polygon" class="agi-btn agi-btn-sm agi-btn-secondary">⬡ 多边形拉框</button>
+        <span class="agi-btn-ext-label">点数:<input type="number" id="agi-polygon-points" value="6" min="3" max="6"></span>
+      </span>
+      <button id="agi-btn-cancel-draw" class="agi-btn agi-btn-sm agi-btn-secondary agi-hidden">❌ 取消绘制</button>
+      <button id="agi-btn-clear-all-boxes" class="agi-btn agi-btn-sm agi-btn-secondary">🗑️ 清除所有框</button>
+    </div>
+    <div class="agi-draw-hint" id="agi-draw-hint"></div>
+    <div id="agi-status" class="agi-status agi-hidden"></div>
+    <div id="agi-annotation-area" class="agi-hidden">
+      <div id="agi-box-list" class="agi-box-list"></div>
+      <div class="agi-cache-hint">💾 数据自动保存到本地缓存</div>
+    </div>
+    <div id="agi-result-area" class="agi-result-area agi-hidden">
+      <div class="agi-result-header">
+        <h3>标注结果 JSON</h3>
+        <button id="agi-btn-copy" class="agi-btn agi-btn-sm agi-btn-primary">复制</button>
+        <button id="agi-btn-close-result" class="agi-btn agi-btn-sm agi-btn-secondary">关闭</button>
+      </div>
+      <textarea id="agi-result-json" class="agi-result-json" readonly></textarea>
+    </div>
+    <!-- 空状态 -->
+    <div id="agi-empty-state" class="agi-image-loading" style="padding:20px;text-align:center;color:#999;font-size:14px;display:none;">
+      暂无标注数据<br>请通过导入或平台初始化加载
+    </div>
+  </div>
+  <div class="agi-panel-footer">
+    <button id="agi-btn-zoom-out" class="agi-btn agi-btn-sm agi-btn-secondary" title="缩小">−</button>
+    <span id="agi-zoom-level">100%</span>
+    <button id="agi-btn-zoom-in" class="agi-btn agi-btn-sm agi-btn-secondary" title="放大">+</button>
+  </div>
+</div>
+
+<!-- 数据加载弹窗 -->
+<div id="agi-modal-overlay" class="agi-modal-overlay" style="display:none;">
+  <div class="agi-modal">
+    <div class="agi-modal-header">
+      <span>📥 加载数据 / 导入结果</span>
+      <button class="agi-modal-close" id="agi-modal-close">×</button>
+    </div>
+    <div class="agi-modal-body">
+      <div class="agi-modal-field">
+        <label>图片/PDF URL（可选）：</label>
+        <input type="text" id="agi-input-image-url" placeholder="输入图片或PDF链接">
+      </div>
+      <div class="agi-modal-field">
+        <label>标注数据 JSON（可选）：</label>
+        <textarea id="agi-input-json" placeholder='粘贴JSON标注数据，如：{"contents": [{"index": 0, "page": 0, "position": [100, 50, 400, 50, 400, 150, 100, 150], "attribute": {"type": "title", "location": "main", "title_level": 1, "attach_index": -1}, "text": "示例标题"}]}'></textarea>
+      </div>
+    </div>
+    <div class="agi-modal-footer">
+      <button class="agi-btn agi-btn-success" id="agi-btn-apply-data">应用数据</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  console.log('[Benchmark V3 标注工具] 已加载 V2.0 - 独立版');
+
+  // ========== 常量 ==========
+  var TYPE_OPTIONS = [
+    'paragraph', 'list', 'title', 'formula', 'formula_number', 'chem_formula',
+    'table', 'table_caption', 'table_footnote',
+    'image', 'image_caption', 'image_footnote',
+    'code', 'code_caption', 'algorithm', 'algorithm_caption',
+    'page_number', 'reference', 'contents', 'stamp', 'other'
+  ];
+  var LOCATION_OPTIONS = ['main', 'header', 'footer', 'footnote', 'sidebar'];
+  var ATTACH_COLORS = [
+    '#ff9999', '#99ccff', '#99ff99', '#ffcc99', '#cc99ff',
+    '#ff99cc', '#99ffcc', '#ffff99', '#cc9999', '#9999cc'
+  ];
+
+  // ========== 状态 ==========
+  var boxesData = [];
+  var imageInfo = null;
+  var fetchedTime = '';
+  var panelZoom = 1.0;
+  var initData = null;
+  var cacheStorage = {};
+  var imageUrl = '';
+  var imageNaturalWidth = 0;
+  var imageNaturalHeight = 0;
+  var imageDisplayWidth = 0;
+  var imageDisplayHeight = 0;
+
+  // ========== PDF相关状态 ==========
+  var pdfDoc = null;             // PDF文档对象
+  var pdfCurrentPage = 1;        // 当前PDF页码
+  var pdfTotalPages = 0;         // PDF总页数
+  var pdfScale = 1.5;            // PDF渲染缩放比例
+  var currentContentType = 'none'; // 'none' | 'image' | 'pdf'
+  var pdfCanvas = document.getElementById('agi-pdf-canvas');
+  var pdfContext = pdfCanvas ? pdfCanvas.getContext('2d') : null;
+  var pdfToolbar = document.getElementById('agi-pdf-toolbar');
+  var pdfPageInfo = document.getElementById('agi-pdf-pageinfo');
+  var pdfZoomLevel = document.getElementById('agi-pdf-zoom-level');
+  var btnPdfPrev = document.getElementById('agi-pdf-prev');
+  var btnPdfNext = document.getElementById('agi-pdf-next');
+  var btnPdfZoomIn = document.getElementById('agi-pdf-zoom-in');
+  var btnPdfZoomOut = document.getElementById('agi-pdf-zoom-out');
+
+  // ========== 绘制模式状态 ==========
+  var drawMode = null;           // null | 'rect' | 'polygon'
+  var isDrawing = false;
+  var drawingStartX = 0;
+  var drawingStartY = 0;
+  var drawingCurrentX = 0;
+  var drawingCurrentY = 0;
+  var polygonPoints = [];        // [{x, y}, ...] 多边形绘制点
+  var polygonPointCount = 6;     // 多边形点数（可配置）
+  var activeBoxIdx = -1;         // 当前选中的标注框索引（用于移动/缩放）
+  var isDraggingBox = false;     // 是否正在拖拽标注框
+  var isResizingBox = false;     // 是否正在缩放标注框
+  var resizeHandle = '';         // 当前缩放手柄方向
+  var dragStartBoxInfo = null;   // 拖拽开始时的框信息
+
+  // ========== DOM引用 ==========
+  var imageContainer = document.getElementById('agi-image-container');
+  var imageWrapper = document.getElementById('agi-image-wrapper');
+  var imageEl = document.getElementById('agi-image');
+  var imageLoading = document.getElementById('agi-image-loading');
+  var panel = document.getElementById('agi-panel');
+  var btnMinimize = document.getElementById('agi-btn-minimize');
+  var btnClose = document.getElementById('agi-btn-close');
+  var btnSave = document.getElementById('agi-btn-save');
+  var btnExport = document.getElementById('agi-btn-export');
+  var btnClearCache = document.getElementById('agi-btn-clear-cache');
+  var statusEl = document.getElementById('agi-status');
+  var annotationArea = document.getElementById('agi-annotation-area');
+  var boxList = document.getElementById('agi-box-list');
+  var resultArea = document.getElementById('agi-result-area');
+  var resultJson = document.getElementById('agi-result-json');
+  var btnCopy = document.getElementById('agi-btn-copy');
+  var btnCloseResult = document.getElementById('agi-btn-close-result');
+  var btnZoomIn = document.getElementById('agi-btn-zoom-in');
+  var btnZoomOut = document.getElementById('agi-btn-zoom-out');
+  var zoomLevelEl = document.getElementById('agi-zoom-level');
+  var btnLoadData = document.getElementById('agi-btn-load-data');
+  var modalOverlay = document.getElementById('agi-modal-overlay');
+  var modalClose = document.getElementById('agi-modal-close');
+  var inputImageUrl = document.getElementById('agi-input-image-url');
+  var inputJson = document.getElementById('agi-input-json');
+  var btnApplyData = document.getElementById('agi-btn-apply-data');
+  var emptyState = document.getElementById('agi-empty-state');
+  var header = panel.querySelector('.agi-panel-header');
+  // 绘制模式DOM引用
+  var btnDrawRect = document.getElementById('agi-btn-draw-rect');
+  var btnDrawPolygon = document.getElementById('agi-btn-draw-polygon');
+  var btnCancelDraw = document.getElementById('agi-btn-cancel-draw');
+  var btnClearAllBoxes = document.getElementById('agi-btn-clear-all-boxes');
+  var continuousRectCheckbox = document.getElementById('agi-continuous-rect');
+  var polygonPointsInput = document.getElementById('agi-polygon-points');
+  var drawHint = document.getElementById('agi-draw-hint');
+
+  // ========== 安全localStorage封装 ==========
+  function safeStorageGet(key) {
+    try {
+      var val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    } catch(e) {
+      return cacheStorage[key] || null;
+    }
+  }
+  
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch(e) {
+      cacheStorage[key] = value;
+    }
+  }
+  
+  function safeStorageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch(e) {
+      delete cacheStorage[key];
+    }
+  }
+
+  // ========== 工具函数 ==========
+  function getLocalTimeString() {
+    var d = new Date();
+    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function showStatus(msg, type) {
+    statusEl.classList.remove('agi-hidden');
+    statusEl.className = 'agi-status agi-status-' + type;
+    statusEl.textContent = msg;
+    if (type === 'success' || type === 'info') {
+      setTimeout(function() { statusEl.classList.add('agi-hidden'); }, 5000);
+    }
+  }
+
+  // ========== 内容加载（支持图片和PDF） ==========
+  function loadImage(url) {
+    if (!url) return;
+    imageUrl = url;
+    
+    // 检测URL是否为PDF
+    if (url.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('.pdf?') || url.toLowerCase().includes('.pdf#')) {
+      loadPDF(url);
+    } else {
+      loadImageFromURL(url);
+    }
+  }
+
+  // ========== 图片加载 ==========
+  function loadImageFromURL(url) {
+    if (!url) return;
+    imageUrl = url;
+    currentContentType = 'image';
+
+    // 隐藏PDF相关元素和结果区域
+    pdfCanvas.classList.add('agi-hidden');
+    pdfToolbar.classList.add('agi-hidden');
+    resultArea.classList.add('agi-hidden');
+
+    imageLoading.style.display = 'block';
+    imageLoading.textContent = '正在加载图片...';
+    imageEl.classList.add('agi-hidden');
+    
+    imageEl.onload = function() {
+      imageNaturalWidth = imageEl.naturalWidth;
+      imageNaturalHeight = imageEl.naturalHeight;
+      imageDisplayWidth = imageEl.width;
+      imageDisplayHeight = imageEl.height;
+      imageLoading.style.display = 'none';
+      imageEl.classList.remove('agi-hidden');
+      console.log('[Benchmark V3] 图片加载成功:', imageNaturalWidth + 'x' + imageNaturalHeight);
+      
+      // 图片加载完成后重新渲染标注框
+      if (boxesData.length > 0) {
+        renderAnnotationBoxes();
+      }
+    };
+    
+    imageEl.onerror = function() {
+      imageLoading.innerHTML = '❌ 图片加载失败<br><span style="font-size:12px;">请检查图片链接是否有效</span>';
+      console.log('[Benchmark V3] 图片加载失败:', url);
+    };
+    
+    imageEl.src = url;
+  }
+
+  // ========== PDF加载 ==========
+  function loadPDF(url) {
+    if (!url) return;
+    imageUrl = url;
+    currentContentType = 'pdf';
+
+    // 隐藏结果区域
+    resultArea.classList.add('agi-hidden');
+
+    // 设置PDF.js worker
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    } else {
+      imageLoading.innerHTML = '❌ PDF.js库未加载<br><span style="font-size:12px;">请检查网络连接</span>';
+      return;
+    }
+    
+    // 隐藏图片元素，显示PDF canvas
+    imageEl.classList.add('agi-hidden');
+    imageLoading.style.display = 'block';
+    imageLoading.textContent = '正在加载PDF...';
+    
+    // 加载PDF文档
+    var loadingTask = pdfjsLib.getDocument({
+      url: url,
+      withCredentials: false
+    });
+    
+    loadingTask.promise.then(function(pdf) {
+      pdfDoc = pdf;
+      pdfTotalPages = pdf.numPages;
+      pdfCurrentPage = 1;
+      
+      // 显示PDF工具栏
+      pdfToolbar.classList.remove('agi-hidden');
+      pdfCanvas.classList.remove('agi-hidden');
+      
+      // 渲染第一页
+      renderPDFPage(pdfCurrentPage);
+      
+      console.log('[Benchmark V3] PDF加载成功，共', pdfTotalPages, '页');
+    }).catch(function(error) {
+      imageLoading.innerHTML = '❌ PDF加载失败<br><span style="font-size:12px;">' + error.message + '</span>';
+      console.log('[Benchmark V3] PDF加载失败:', error);
+    });
+  }
+
+  // ========== PDF翻页 ==========
+  function goToPage(pageNum) {
+    if (!pdfDoc) return;
+    if (pageNum < 1 || pageNum > pdfTotalPages) return;
+    pdfCurrentPage = pageNum;
+    renderPDFPage(pdfCurrentPage);
+    renderAnnotationBoxes();
+  }
+
+  function nextPage() { goToPage(pdfCurrentPage + 1); }
+  function prevPage() { goToPage(pdfCurrentPage - 1); }
+
+  // ========== PDF缩放 ==========
+  function setPDFScale(scale) {
+    pdfScale = Math.max(0.5, Math.min(3.0, scale));
+    pdfZoomLevel.textContent = Math.round(pdfScale * 100) + '%';
+    renderPDFPage(pdfCurrentPage);
+    renderAnnotationBoxes();
+  }
+
+  // ========== 渲染PDF页面 ==========
+  function renderPDFPage(pageNum) {
+    if (!pdfDoc || !pdfContext) return;
+    
+    pdfDoc.getPage(pageNum).then(function(page) {
+      var viewport = page.getViewport({ scale: pdfScale });
+      
+      // 设置canvas尺寸
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      pdfCanvas.style.width = viewport.width + 'px';
+      pdfCanvas.style.height = viewport.height + 'px';
+      
+      // 更新imageNaturalWidth/Height为当前PDF页面尺寸，用于坐标计算
+      imageNaturalWidth = viewport.width;
+      imageNaturalHeight = viewport.height;
+      imageDisplayWidth = viewport.width;
+      imageDisplayHeight = viewport.height;
+      
+      // 渲染PDF页面到canvas
+      var renderContext = {
+        canvasContext: pdfContext,
+        viewport: viewport
+      };
+      
+      page.render(renderContext).promise.then(function() {
+        imageLoading.style.display = 'none';
+        pdfCanvas.classList.remove('agi-hidden');
+        pdfPageInfo.textContent = pdfCurrentPage + ' / ' + pdfTotalPages;
+        
+        // 页面渲染完成后重新渲染标注框
+        if (boxesData.length > 0) {
+          renderAnnotationBoxes();
+        }
+      });
+    });
+  }
+
+  // ========== 绘制模式控制 ==========
+  function startDrawMode(mode) {
+    if (!imageNaturalWidth || !imageDisplayWidth) {
+      showStatus('⚠️ 请先加载图片', 'error');
+      return;
+    }
+    drawMode = mode;
+    isDrawing = false;
+    polygonPoints = [];
+    // 更新按钮状态
+    btnDrawRect.classList.remove('agi-draw-active');
+    btnDrawPolygon.classList.remove('agi-draw-active');
+    if (mode === 'rect') {
+      btnDrawRect.classList.add('agi-draw-active');
+      showDrawHint('在图片上按住鼠标左键拖动，松开完成矩形绘制');
+    } else if (mode === 'polygon') {
+      btnDrawPolygon.classList.add('agi-draw-active');
+      polygonPointCount = parseInt(polygonPointsInput.value) || 6;
+      showDrawHint('在图片上点击 ' + polygonPointCount + ' 个点（顺时针方向），双击或点击第一个点完成绘制');
+    }
+    btnCancelDraw.classList.remove('agi-hidden');
+    imageWrapper.classList.add('agi-drawing-cursor');
+  }
+
+  function cancelDrawMode() {
+    drawMode = null;
+    isDrawing = false;
+    polygonPoints = [];
+    clearDrawPreview();
+    btnDrawRect.classList.remove('agi-draw-active');
+    btnDrawPolygon.classList.remove('agi-draw-active');
+    btnCancelDraw.classList.add('agi-hidden');
+    hideDrawHint();
+    imageWrapper.classList.remove('agi-drawing-cursor');
+  }
+
+  function showDrawHint(text) {
+    drawHint.textContent = text;
+    drawHint.classList.add('agi-show');
+  }
+
+  function hideDrawHint() {
+    drawHint.classList.remove('agi-show');
+  }
+
+  function clearDrawPreview() {
+    // 清除绘制预览元素
+    var previews = imageWrapper.querySelectorAll('.agi-draw-preview, .agi-polygon-point, .agi-polygon-line');
+    for (var i = 0; i < previews.length; i++) {
+      previews[i].parentNode.removeChild(previews[i]);
+    }
+  }
+
+  // ========== 获取图片/PDF上的坐标（绝对坐标） ==========
+  function getImageCoords(e) {
+    var targetEl = currentContentType === 'pdf' ? pdfCanvas : imageEl;
+    var wrapperRect = imageWrapper.getBoundingClientRect();
+    var x = e.clientX - wrapperRect.left;
+    var y = e.clientY - wrapperRect.top;
+    // 转换为绝对坐标（基于naturalWidth/Height）
+    var absX = Math.round((x / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var absY = Math.round((y / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+    return { x: absX, y: absY, displayX: x, displayY: y };
+  }
+
+  // ========== 矩形绘制 ==========
+  function startRectDraw(e) {
+    if (drawMode !== 'rect') return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDrawing = true;
+    var coords = getImageCoords(e);
+    drawingStartX = coords.displayX;
+    drawingStartY = coords.displayY;
+    drawingCurrentX = coords.displayX;
+    drawingCurrentY = coords.displayY;
+  }
+
+  function moveRectDraw(e) {
+    if (!isDrawing || drawMode !== 'rect') return;
+    e.preventDefault();
+    var coords = getImageCoords(e);
+    drawingCurrentX = coords.displayX;
+    drawingCurrentY = coords.displayY;
+    updateRectPreview();
+  }
+
+  function updateRectPreview() {
+    clearDrawPreview();
+    var left = Math.min(drawingStartX, drawingCurrentX);
+    var top = Math.min(drawingStartY, drawingCurrentY);
+    var width = Math.abs(drawingCurrentX - drawingStartX);
+    var height = Math.abs(drawingCurrentY - drawingStartY);
+    if (width < 3 || height < 3) return;
+
+    var preview = document.createElement('div');
+    preview.className = 'agi-draw-preview';
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+    preview.style.width = width + 'px';
+    preview.style.height = height + 'px';
+    imageWrapper.appendChild(preview);
+  }
+
+  function endRectDraw(e) {
+    if (!isDrawing || drawMode !== 'rect') return;
+    isDrawing = false;
+    clearDrawPreview();
+
+    var left = Math.min(drawingStartX, drawingCurrentX);
+    var top = Math.min(drawingStartY, drawingCurrentY);
+    var width = Math.abs(drawingCurrentX - drawingStartX);
+    var height = Math.abs(drawingCurrentY - drawingStartY);
+
+    if (width < 5 || height < 5) {
+      showStatus('⚠️ 绘制区域太小，请重新绘制', 'error');
+      return;
+    }
+
+    // 转换为绝对坐标
+    var x1 = Math.round((left / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var y1 = Math.round((top / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+    var x2 = Math.round(((left + width) / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var y2 = Math.round(((top + height) / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+
+    // 创建新标注框
+    createNewBox({
+      x1: Math.min(x1, x2), y1: Math.min(y1, y2),
+      x2: Math.max(x1, x2), y2: Math.max(y1, y2)
+    });
+
+    // 连续模式下不退出绘制状态，可以继续拉框
+    if (continuousRectCheckbox && continuousRectCheckbox.checked) {
+      isDrawing = false;
+      showDrawHint('连续拉框模式：继续按住鼠标左键拖动绘制下一个框');
+    } else {
+      cancelDrawMode();
+    }
+  }
+
+  // ========== 多边形绘制 ==========
+  function addPolygonPoint(e) {
+    if (drawMode !== 'polygon') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    var coords = getImageCoords(e);
+
+    // 检查是否点击了第一个点（闭合多边形）
+    if (polygonPoints.length >= 3) {
+      var firstPoint = polygonPoints[0];
+      var dist = Math.sqrt(Math.pow(coords.displayX - firstPoint.displayX, 2) + Math.pow(coords.displayY - firstPoint.displayY, 2));
+      if (dist < 15) {
+        // 点击了第一个点，闭合多边形
+        finishPolygonDraw();
+        return;
+      }
+    }
+
+    // 添加点
+    polygonPoints.push(coords);
+    renderPolygonPreview();
+
+    // 检查是否达到指定点数
+    if (polygonPoints.length >= polygonPointCount) {
+      finishPolygonDraw();
+    }
+  }
+
+  function renderPolygonPreview() {
+    clearDrawPreview();
+    var pts = polygonPoints;
+    // 绘制点和线
+    for (var i = 0; i < pts.length; i++) {
+      var pt = pts[i];
+      // 绘制点
+      var pointEl = document.createElement('div');
+      pointEl.className = 'agi-polygon-point';
+      pointEl.style.left = pt.displayX + 'px';
+      pointEl.style.top = pt.displayY + 'px';
+      if (i === 0) {
+        pointEl.style.background = '#52c41a'; // 第一个点为绿色
+        pointEl.style.width = '12px';
+        pointEl.style.height = '12px';
+      }
+      imageWrapper.appendChild(pointEl);
+
+      // 绘制线（连接相邻点）
+      if (i > 0) {
+        var prev = pts[i - 1];
+        var lineEl = createLine(prev.displayX, prev.displayY, pt.displayX, pt.displayY);
+        imageWrapper.appendChild(lineEl);
+      }
+    }
+    // 绘制闭合线（从最后一个点回到第一个点）
+    if (pts.length >= 3) {
+      var first = pts[0];
+      var last = pts[pts.length - 1];
+      var closeLine = createLine(last.displayX, last.displayY, first.displayX, first.displayY);
+      closeLine.style.borderStyle = 'dashed'; // 闭合线用虚线表示
+      imageWrapper.appendChild(closeLine);
+    }
+  }
+
+  function createLine(x1, y1, x2, y2) {
+    var length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    var angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    var line = document.createElement('div');
+    line.className = 'agi-polygon-line';
+    line.style.left = x1 + 'px';
+    line.style.top = y1 + 'px';
+    line.style.width = length + 'px';
+    line.style.transform = 'rotate(' + angle + 'deg)';
+    return line;
+  }
+
+  function finishPolygonDraw() {
+    if (polygonPoints.length < 3) {
+      showStatus('⚠️ 多边形至少需要3个点', 'error');
+      return;
+    }
+
+    // 转换为points格式
+    var points = polygonPoints.map(function(p) {
+      return { x: p.x, y: p.y };
+    });
+
+    // 创建新标注框（多边形）
+    createNewBoxPolygon(points);
+    cancelDrawMode();
+  }
+
+  function doubleClickPolygon(e) {
+    if (drawMode !== 'polygon' || polygonPoints.length < 3) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishPolygonDraw();
+  }
+
+  // ========== 创建新标注框 ==========
+  function createNewBox(coords) {
+    var newIndex = boxesData.length;
+    var box = {
+      index: newIndex,
+      page: currentContentType === 'pdf' ? pdfCurrentPage : '',
+      type: '',
+      location: '',
+      title_level: '',
+      attach_index: '',
+      coords: coords,
+      description: '',
+      text: '',
+      isNew: true  // 标记为新创建的框
+    };
+    boxesData.push(box);
+    var newArrayIdx = boxesData.length - 1; // 保存数组索引
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    // 滚动到新创建的标注项（通过data-index查找）
+    setTimeout(function() {
+      var newPanelItem = boxList.querySelector('.agi-box-item[data-index="' + newArrayIdx + '"]');
+      if (newPanelItem) {
+        newPanelItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 高亮新创建的项
+        newPanelItem.classList.add('agi-group-highlight');
+        setTimeout(function() { newPanelItem.classList.remove('agi-group-highlight'); }, 2000);
+      }
+    }, 100);
+    showStatus('✅ 已创建新标注框，请在右侧面板填写标注信息', 'success');
+    saveToCache();
+  }
+
+  function createNewBoxPolygon(points) {
+    var newIndex = boxesData.length;
+    var box = {
+      index: newIndex,
+      page: currentContentType === 'pdf' ? pdfCurrentPage : '',
+      type: '',
+      location: '',
+      title_level: '',
+      attach_index: '',
+      coords: { points: points },
+      annotationType: 'POLYGON',
+      description: '',
+      text: '',
+      isNew: true
+    };
+    boxesData.push(box);
+    var newArrayIdx = boxesData.length - 1; // 保存数组索引
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    // 滚动到新创建的标注项（通过data-index查找）
+    setTimeout(function() {
+      var newPanelItem = boxList.querySelector('.agi-box-item[data-index="' + newArrayIdx + '"]');
+      if (newPanelItem) {
+        newPanelItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        newPanelItem.classList.add('agi-group-highlight');
+        setTimeout(function() { newPanelItem.classList.remove('agi-group-highlight'); }, 2000);
+      }
+    }, 100);
+    showStatus('✅ 已创建新多边形标注框，请在右侧面板填写标注信息', 'success');
+    saveToCache();
+  }
+
+  // ========== 删除标注框 ==========
+  // ========== 更新attach_index引用（当index变化时同步更新） ==========
+  function updateAttachIndexReferences(oldIndex, newIndex) {
+    if (oldIndex === newIndex) return;
+    boxesData.forEach(function(box) {
+      if (box.attach_index === oldIndex) {
+        box.attach_index = newIndex;
+      } else if (Array.isArray(box.attach_index)) {
+        box.attach_index = box.attach_index.map(function(ai) {
+          return ai === oldIndex ? newIndex : ai;
+        });
+      }
+    });
+  }
+
+  // ========== 将index >= fromIndex的框的index加1（用于插入新框） ==========
+  function shiftIndicesUp(fromIndex) {
+    // 需要记录每个框的oldIndex -> newIndex映射，以便更新attach_index
+    var indexMap = {};
+    boxesData.forEach(function(box) {
+      if (box.index >= fromIndex) {
+        indexMap[box.index] = box.index + 1;
+      }
+    });
+
+    // 从大到小排序，避免冲突
+    var indices = Object.keys(indexMap).map(Number).sort(function(a, b) { return b - a; });
+    indices.forEach(function(oldIdx) {
+      var box = boxesData.find(function(b) { return b.index === oldIdx; });
+      if (box) {
+        var newIdx = oldIdx + 1;
+        updateAttachIndexReferences(box.index, newIdx);
+        box.index = newIdx;
+      }
+    });
+  }
+
+  // ========== 将index > fromIndex的框的index减1（用于删除框） ==========
+  function shiftIndicesDown(deletedIndex) {
+    boxesData.forEach(function(box) {
+      if (box.index > deletedIndex) {
+        var oldIdx = box.index;
+        var newIdx = oldIdx - 1;
+        updateAttachIndexReferences(oldIdx, newIdx);
+        box.index = newIdx;
+      }
+    });
+    // 同时更新attach_index，如果attach_index等于被删除的index，需要清除
+    boxesData.forEach(function(box) {
+      if (box.attach_index === deletedIndex) {
+        box.attach_index = -1;
+      } else if (Array.isArray(box.attach_index)) {
+        box.attach_index = box.attach_index.filter(function(ai) { return ai !== deletedIndex; });
+        if (box.attach_index.length === 0) box.attach_index = -1;
+      }
+    });
+  }
+
+  function deleteBox(arrayIdx) {
+    if (arrayIdx < 0 || arrayIdx >= boxesData.length) return;
+    var box = boxesData[arrayIdx];
+    if (!confirm('确定删除 #' + box.index + ' 标注框？此操作不可撤销。')) return;
+
+    var deletedIndex = box.index;
+    boxesData.splice(arrayIdx, 1);
+    // 删除后，将大于被删除框index的框的index减1
+    shiftIndicesDown(deletedIndex);
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    saveToCache();
+    showStatus('🗑️ 已删除标注框', 'success');
+  }
+
+  function clearAllBoxes() {
+    if (boxesData.length === 0) return;
+    if (!confirm('确定清除所有 ' + boxesData.length + ' 个标注框？此操作不可撤销。')) return;
+    boxesData = [];
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    saveToCache();
+    showStatus('🗑️ 已清除所有标注框', 'success');
+  }
+
+  // ========== index冲突处理（后续序号顺延） ==========
+  function handleIndexConflict(changedItem, newIndex) {
+    var oldIndex = parseInt(changedItem._oldIndex);
+    if (isNaN(oldIndex)) return;
+
+    if (newIndex !== oldIndex) {
+      // 在boxesData中找到对应的框
+      var changedArrayIdx = parseInt(changedItem.dataset.index);
+      var changedBox = (!isNaN(changedArrayIdx) && boxesData[changedArrayIdx]) ? boxesData[changedArrayIdx] : null;
+
+      if (newIndex > oldIndex) {
+        // 索引增大：将oldIndex+1到newIndex之间的框减1
+        // 例如：原index从2改为5，原来3,4,5的框变成2,3,4
+        // 先收集需要修改的框，避免在循环中修改导致的连锁问题
+        var toDecrease = boxesData.filter(function(box) {
+          return box !== changedBox && box.index > oldIndex && box.index <= newIndex;
+        });
+        // 按index从小到大排序，这样修改时不会影响后续查找
+        toDecrease.sort(function(a, b) { return a.index - b.index; });
+        toDecrease.forEach(function(box) {
+          var oldIdx = box.index;
+          var newIdx = oldIdx - 1;
+          updateAttachIndexReferences(oldIdx, newIdx);
+          box.index = newIdx;
+        });
+      } else {
+        // 索引减小：将newIndex到oldIndex-1之间的框加1
+        // 例如：原index从5改为2，原来2,3,4的框变成3,4,5
+        var toIncrease = boxesData.filter(function(box) {
+          return box !== changedBox && box.index >= newIndex && box.index < oldIndex;
+        });
+        // 按index从大到小排序，这样修改时不会影响后续查找
+        toIncrease.sort(function(a, b) { return b.index - a.index; });
+        toIncrease.forEach(function(box) {
+          var oldIdx = box.index;
+          var newIdx = oldIdx + 1;
+          updateAttachIndexReferences(oldIdx, newIdx);
+          box.index = newIdx;
+        });
+      }
+
+      // 更新被修改的框的index
+      if (changedBox) {
+        updateAttachIndexReferences(oldIndex, newIndex);
+        changedBox.index = newIndex;
+      }
+
+      // 更新DOM中的显示
+      updateIndexDisplayFromData();
+    }
+    changedItem._oldIndex = newIndex;
+  }
+
+  // ========== 根据boxesData更新DOM中的index显示 ==========
+  function updateIndexDisplayFromData() {
+    var items = boxList.querySelectorAll('.agi-box-item');
+    items.forEach(function(item) {
+      var arrayIdx = parseInt(item.dataset.index);
+      if (!isNaN(arrayIdx) && boxesData[arrayIdx]) {
+        var input = item.querySelector('.agi-field-index');
+        if (input) {
+          input.value = boxesData[arrayIdx].index;
+          input._oldIndex = boxesData[arrayIdx].index;
+        }
+        var attachInput = item.querySelector('.agi-field-attach-index');
+        if (attachInput && boxesData[arrayIdx].attach_index !== undefined) {
+          var ai = boxesData[arrayIdx].attach_index;
+          if (Array.isArray(ai)) {
+            attachInput.value = ai.join(', ');
+          } else {
+            attachInput.value = ai;
+          }
+        }
+      }
+    });
+    // 更新关联高亮
+    updateAttachHighlight();
+    applyBoxGroupColors();
+  }
+
+  // ========== 标注框移动和缩放 ==========
+  function startDragBox(e, boxIdx) {
+    if (drawMode) return; // 绘制模式下不允许拖拽
+    if (e.target.classList.contains('agi-resize-handle')) return; // 由缩放手柄处理
+    if (e.target.classList.contains('agi-box-delete-btn')) return; // 删除按钮
+
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingBox = true;
+    activeBoxIdx = boxIdx;
+    var coords = getImageCoords(e);
+    var box = boxesData[boxIdx];
+    dragStartBoxInfo = {
+      startMouseX: coords.displayX,
+      startMouseY: coords.displayY,
+      boxLeft: 0,
+      boxTop: 0
+    };
+
+    // 获取当前框的显示位置
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + boxIdx + '"]');
+    if (boxEl) {
+      dragStartBoxInfo.boxLeft = parseFloat(boxEl.style.left);
+      dragStartBoxInfo.boxTop = parseFloat(boxEl.style.top);
+    }
+  }
+
+  function dragBox(e) {
+    if (!isDraggingBox || activeBoxIdx < 0) return;
+    e.preventDefault();
+    var coords = getImageCoords(e);
+    var dx = coords.displayX - dragStartBoxInfo.startMouseX;
+    var dy = coords.displayY - dragStartBoxInfo.startMouseY;
+
+    var newLeft = dragStartBoxInfo.boxLeft + dx;
+    var newTop = dragStartBoxInfo.boxTop + dy;
+
+    // 更新显示
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + activeBoxIdx + '"]');
+    if (boxEl) {
+      boxEl.style.left = newLeft + 'px';
+      boxEl.style.top = newTop + 'px';
+    }
+
+  }
+
+  function endDragBox(e) {
+    if (!isDraggingBox || activeBoxIdx < 0) return;
+    isDraggingBox = false;
+
+    // 计算新的绝对坐标
+    var box = boxesData[activeBoxIdx];
+    if (!box || !box.coords) return;
+
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + activeBoxIdx + '"]');
+    if (!boxEl) return;
+
+    var newDisplayLeft = parseFloat(boxEl.style.left);
+    var newDisplayTop = parseFloat(boxEl.style.top);
+    var displayWidth = parseFloat(boxEl.style.width);
+    var displayHeight = parseFloat(boxEl.style.height);
+
+    // 转换为绝对坐标
+    var absX = Math.round((newDisplayLeft / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var absY = Math.round((newDisplayTop / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+    var absX2 = Math.round(((newDisplayLeft + displayWidth) / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var absY2 = Math.round(((newDisplayTop + displayHeight) / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+
+    if (box.coords.points) {
+      // 多边形：计算偏移量并应用到所有点
+      var origLeft = Infinity, origTop = Infinity;
+      box.coords.points.forEach(function(p) {
+        var pDisplayX = (p.x / imageNaturalWidth) * imageDisplayWidth;
+        var pDisplayY = (p.y / imageNaturalHeight) * imageDisplayHeight;
+        if (pDisplayX < origLeft) origLeft = pDisplayX;
+        if (pDisplayY < origTop) origTop = pDisplayY;
+      });
+      var offsetX = newDisplayLeft - origLeft;
+      var offsetY = newDisplayTop - origTop;
+      box.coords.points.forEach(function(p) {
+        p.x = Math.round(((p.x / imageNaturalWidth) * imageDisplayWidth + offsetX) / imageDisplayWidth * imageNaturalWidth * 10000) / 10000;
+        p.y = Math.round(((p.y / imageNaturalHeight) * imageDisplayHeight + offsetY) / imageDisplayHeight * imageNaturalHeight * 10000) / 10000;
+      });
+    } else {
+      // 矩形
+      box.coords.x1 = Math.min(absX, absX2);
+      box.coords.y1 = Math.min(absY, absY2);
+      box.coords.x2 = Math.max(absX, absX2);
+      box.coords.y2 = Math.max(absY, absY2);
+    }
+
+    // 更新面板中的坐标显示
+    updatePanelCoords(activeBoxIdx);
+    saveToCache();
+    activeBoxIdx = -1;
+  }
+
+  function startResizeBox(e, boxIdx, handle) {
+    if (drawMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingBox = true;
+    resizeHandle = handle;
+    activeBoxIdx = boxIdx;
+    var coords = getImageCoords(e);
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + boxIdx + '"]');
+    dragStartBoxInfo = {
+      startMouseX: coords.displayX,
+      startMouseY: coords.displayY,
+      boxLeft: parseFloat(boxEl.style.left),
+      boxTop: parseFloat(boxEl.style.top),
+      boxWidth: parseFloat(boxEl.style.width),
+      boxHeight: parseFloat(boxEl.style.height)
+    };
+  }
+
+  function resizeBox(e) {
+    if (!isResizingBox || activeBoxIdx < 0) return;
+    e.preventDefault();
+    var coords = getImageCoords(e);
+    var dx = coords.displayX - dragStartBoxInfo.startMouseX;
+    var dy = coords.displayY - dragStartBoxInfo.startMouseY;
+
+    var newLeft = dragStartBoxInfo.boxLeft;
+    var newTop = dragStartBoxInfo.boxTop;
+    var newWidth = dragStartBoxInfo.boxWidth;
+    var newHeight = dragStartBoxInfo.boxHeight;
+
+    switch (resizeHandle) {
+      case 'se':
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth + dx);
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight + dy);
+        break;
+      case 'sw':
+        newLeft = dragStartBoxInfo.boxLeft + dx;
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth - dx);
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight + dy);
+        break;
+      case 'ne':
+        newTop = dragStartBoxInfo.boxTop + dy;
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth + dx);
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight - dy);
+        break;
+      case 'nw':
+        newLeft = dragStartBoxInfo.boxLeft + dx;
+        newTop = dragStartBoxInfo.boxTop + dy;
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth - dx);
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight - dy);
+        break;
+      case 'n':
+        newTop = dragStartBoxInfo.boxTop + dy;
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight - dy);
+        break;
+      case 's':
+        newHeight = Math.max(10, dragStartBoxInfo.boxHeight + dy);
+        break;
+      case 'w':
+        newLeft = dragStartBoxInfo.boxLeft + dx;
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth - dx);
+        break;
+      case 'e':
+        newWidth = Math.max(10, dragStartBoxInfo.boxWidth + dx);
+        break;
+    }
+
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + activeBoxIdx + '"]');
+    if (boxEl) {
+      boxEl.style.left = newLeft + 'px';
+      boxEl.style.top = newTop + 'px';
+      boxEl.style.width = newWidth + 'px';
+      boxEl.style.height = newHeight + 'px';
+    }
+
+  }
+
+  function endResizeBox(e) {
+    if (!isResizingBox || activeBoxIdx < 0) return;
+    isResizingBox = false;
+
+    var box = boxesData[activeBoxIdx];
+    if (!box || !box.coords) return;
+
+    var boxEl = imageWrapper.querySelector('.agi-annotation-box[data-index="' + activeBoxIdx + '"]');
+    if (!boxEl) return;
+
+    var newDisplayLeft = parseFloat(boxEl.style.left);
+    var newDisplayTop = parseFloat(boxEl.style.top);
+    var displayWidth = parseFloat(boxEl.style.width);
+    var displayHeight = parseFloat(boxEl.style.height);
+
+    var absX = Math.round((newDisplayLeft / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var absY = Math.round((newDisplayTop / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+    var absX2 = Math.round(((newDisplayLeft + displayWidth) / imageDisplayWidth) * imageNaturalWidth * 10000) / 10000;
+    var absY2 = Math.round(((newDisplayTop + displayHeight) / imageDisplayHeight) * imageNaturalHeight * 10000) / 10000;
+
+    if (box.coords.points) {
+      // 多边形：计算缩放比例并应用到所有点
+      var origMinX = Infinity, origMinY = Infinity, origMaxX = -Infinity, origMaxY = -Infinity;
+      box.coords.points.forEach(function(p) {
+        if (p.x < origMinX) origMinX = p.x;
+        if (p.y < origMinY) origMinY = p.y;
+        if (p.x > origMaxX) origMaxX = p.x;
+        if (p.y > origMaxY) origMaxY = p.y;
+      });
+      var origWidth = origMaxX - origMinX;
+      var origHeight = origMaxY - origMinY;
+      var scaleX = displayWidth / ((origWidth / imageNaturalWidth) * imageDisplayWidth);
+      var scaleY = displayHeight / ((origHeight / imageNaturalHeight) * imageDisplayHeight);
+
+      box.coords.points.forEach(function(p) {
+        var relX = p.x - origMinX;
+        var relY = p.y - origMinY;
+        p.x = Math.round((origMinX + relX * scaleX) * 10000) / 10000;
+        p.y = Math.round((origMinY + relY * scaleY) * 10000) / 10000;
+      });
+    } else {
+      box.coords.x1 = Math.min(absX, absX2);
+      box.coords.y1 = Math.min(absY, absY2);
+      box.coords.x2 = Math.max(absX, absX2);
+      box.coords.y2 = Math.max(absY, absY2);
+    }
+
+    updatePanelCoords(activeBoxIdx);
+    saveToCache();
+    activeBoxIdx = -1;
+  }
+
+  // ========== 多边形顶点拖拽 ==========
+  var isDraggingPolygonVertex = false;
+  var draggingPolygonBoxIdx = -1;
+  var draggingPolygonPointIdx = -1;
+  var polygonVertexStartMouse = null;
+
+  function startDragPolygonVertex(e, boxIdx, pointIdx) {
+    if (drawMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingPolygonVertex = true;
+    draggingPolygonBoxIdx = boxIdx;
+    draggingPolygonPointIdx = pointIdx;
+    polygonVertexStartMouse = { x: e.clientX, y: e.clientY };
+  }
+
+  function dragPolygonVertex(e) {
+    if (!isDraggingPolygonVertex || draggingPolygonBoxIdx < 0 || draggingPolygonPointIdx < 0) return;
+    e.preventDefault();
+
+    var box = boxesData[draggingPolygonBoxIdx];
+    if (!box || !box.coords || !box.coords.points) return;
+
+    var imgRect = imageWrapper.getBoundingClientRect();
+    var displayX = e.clientX - imgRect.left;
+    var displayY = e.clientY - imgRect.top;
+
+    // 转换为绝对坐标（基于原始图片尺寸）
+    var absX = (displayX / imageDisplayWidth) * imageNaturalWidth;
+    var absY = (displayY / imageDisplayHeight) * imageNaturalHeight;
+
+    // 更新顶点坐标
+    box.coords.points[draggingPolygonPointIdx].x = Math.round(absX * 10000) / 10000;
+    box.coords.points[draggingPolygonPointIdx].y = Math.round(absY * 10000) / 10000;
+
+    // 重新渲染标注框
+    renderAnnotationBoxes();
+
+    // 实时更新面板坐标显示
+    updatePanelCoords(draggingPolygonBoxIdx);
+  }
+
+  // ========== 根据box.index查找对应的面板项 ==========
+  function findPanelItemByBoxIndex(boxIndex) {
+    var items = boxList.querySelectorAll('.agi-box-item');
+    for (var i = 0; i < items.length; i++) {
+      var idxInput = items[i].querySelector('.agi-field-index');
+      if (idxInput && parseInt(idxInput.value) === boxIndex) {
+        return items[i];
+      }
+    }
+    return null;
+  }
+
+  function endDragPolygonVertex(e) {
+    if (!isDraggingPolygonVertex) return;
+    isDraggingPolygonVertex = false;
+    draggingPolygonBoxIdx = -1;
+    draggingPolygonPointIdx = -1;
+    polygonVertexStartMouse = null;
+    saveToCache();
+  }
+
+  function updatePanelCoords(arrayIdx) {
+    // 通过data-index属性查找对应的面板项
+    var panelItem = boxList.querySelector('.agi-box-item[data-index="' + arrayIdx + '"]');
+    if (!panelItem) return;
+    var box = boxesData[arrayIdx];
+    var position = coordsToPosition(box.coords);
+    var coordsEl = panelItem.querySelector('.agi-box-coords');
+    if (coordsEl) {
+      coordsEl.textContent = position ? '[' + position.join(', ') + ']' : '无坐标';
+    }
+  }
+
+  // ========== 坐标转换 ==========
+  // ========== 多边形顶点排序（从左上角开始，顺时针） ==========
+  function sortPolygonPointsClockwiseFromTopLeft(points) {
+    if (!points || points.length < 3) return points;
+    // 找到最左上角的点（y最小，y相同则x最小）
+    var startIdx = 0;
+    for (var i = 1; i < points.length; i++) {
+      if (points[i].y < points[startIdx].y || (points[i].y === points[startIdx].y && points[i].x < points[startIdx].x)) {
+        startIdx = i;
+      }
+    }
+    // 计算每个点相对于起始点的角度（屏幕坐标系y轴向下）
+    var startPt = points[startIdx];
+    var sorted = points.map(function(p, i) {
+      var dx = p.x - startPt.x;
+      var dy = p.y - startPt.y;
+      // 在屏幕坐标系中，atan2(dy, dx)给出的角度：
+      // 0 = 右, 90 = 下, 180/-180 = 左, -90 = 上
+      // 要按顺时针从左上角开始排序，需要：左上(-139到-180) -> 右上(0到-45) -> 右下(0到45) -> 左下(45到135) -> 回到左上
+      // 实际上，从左上角顺时针的顺序是：左上 -> 右上 -> 右下 -> 左下
+      var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      return { point: p, idx: i, angle: angle, dx: dx, dy: dy };
+    });
+
+    // 按顺时针方向排序（从左上角开始）
+    // 左上角区域的点角度约为 -180 到 -90（或 180 到 270）
+    // 右上角区域的点角度约为 -90 到 0
+    // 右下角区域的点角度约为 0 到 90
+    // 左下角区域的点角度约为 90 到 180
+    sorted.sort(function(a, b) {
+      // 将角度归一化到 0-360 范围，从左上角开始顺时针
+      // 左上角: atan2(-dy, -dx) 约 135-180 或 -180 到 -135
+      // 转换：使左上角为起始点（角度最小）
+      function normalizeAngle(item) {
+        if (item.idx === startIdx) return -1; // 起始点排最前
+        var ang = item.angle;
+        // 从左上角顺时针：左上(-180~-90) -> 右上(-90~0) -> 右下(0~90) -> 左下(90~180)
+        // 我们希望顺序：起始点(左上角) -> 右上 -> 右下 -> 左下 -> 回到起始点
+        // 在屏幕坐标系中，从左上角顺时针的角度顺序是：
+        // 右上: 角度约 -45 度（右偏上）
+        // 右下: 角度约 45 度（右偏下）
+        // 左下: 角度约 135 度（左偏下）
+        // 所以顺时针顺序对应角度递增（从某个参考点开始）
+
+        // 更简单的方法：使用叉积判断相对位置
+        // 从起始点开始，按与水平方向的夹角排序
+        // 由于起始点是最左上角，顺时针顺序就是角度从 -180 递增到 180
+        if (ang < 0) ang += 360;
+        // 但是左上角点的角度范围是 180-270（在标准atan2中）
+        // 需要调整使得从左上角顺时针时角度递增
+        // 左上角顺时针：左上(角度225左右) -> 右上(角度315/-45) -> 右下(角度45) -> 左下(角度135)
+        // 所以归一化后：右上(315) > 右下(45+360=405?) 不对
+
+        // 更直接的方法：根据点相对于起始点的象限
+        // 起始点是最左上角
+        // 顺时针顺序：右上方点 -> 右下方点 -> 左下方点 -> 左上方点（回到起点）
+        // 用叉积和点积来确定顺序
+        return ang;
+      }
+      return normalizeAngle(a) - normalizeAngle(b);
+    });
+
+    // 重新实现：使用更可靠的排序方法
+    // 从最左上角开始，按顺时针方向排列
+    // 方法：计算重心，然后按相对于重心的极角排序（在屏幕坐标系中，顺时针方向对应角度递减）
+    var cx = 0, cy = 0;
+    points.forEach(function(p) { cx += p.x; cy += p.y; });
+    cx /= points.length;
+    cy /= points.length;
+
+    var result = points.slice().sort(function(a, b) {
+      // 在屏幕坐标系（y向下）中，按相对于重心的角度排序
+      // 顺时针方向：角度从正上方开始递减（或递增，取决于方向）
+      var angleA = Math.atan2(a.y - cy, a.x - cx);
+      var angleB = Math.atan2(b.y - cy, b.x - cx);
+      // 屏幕坐标系中，顺时针方向对应角度递减
+      return angleB - angleA;
+    });
+
+    // 找到最左上角点在排序后数组中的位置
+    var topLeftSortedIdx = 0;
+    for (var j = 0; j < result.length; j++) {
+      if (result[j] === points[startIdx]) {
+        topLeftSortedIdx = j;
+        break;
+      }
+    }
+
+    // 重新排列，从最左上角开始
+    var final = result.slice(topLeftSortedIdx).concat(result.slice(0, topLeftSortedIdx));
+    return final;
+  }
+
+  // ========== 坐标转换为position数组 ==========
+  function coordsToPosition(coords) {
+    if (!coords) return null;
+
+    if (coords.points && Array.isArray(coords.points)) {
+      // 多边形：排序顶点（从左上角开始，顺时针）
+      var sorted = sortPolygonPointsClockwiseFromTopLeft(coords.points);
+      var result = [];
+      sorted.forEach(function(p) {
+        result.push(Math.round(p.x));
+        result.push(Math.round(p.y));
+      });
+      return result;
+    }
+
+    return [
+      Math.round(coords.x1),
+      Math.round(coords.y1),
+      Math.round(coords.x2),
+      Math.round(coords.y1),
+      Math.round(coords.x2),
+      Math.round(coords.y2),
+      Math.round(coords.x1),
+      Math.round(coords.y2)
+    ];
+  }
+
+  // ========== 格式问题检测 ==========
+  function detectIssues(text, type) {
+    var issues = [];
+    if (!text) return issues;
+
+    if (/\*\*[\s\S]+?\*\*/.test(text))
+      issues.push({ id: 'bold', level: 'error', msg: '含有加粗格式 **...**' });
+
+    if (/(?<!\*)\*(?!\*)[\s\S]+?\*(?!\*)/.test(text))
+      issues.push({ id: 'italic_star', level: 'error', msg: '含有斜体格式 *...*' });
+
+    if (/(?<!\w)_(?![0-9a-zA-Z{\\])[\s\S]+?_(?!\w)/.test(text))
+      issues.push({ id: 'italic_under', level: 'error', msg: '含有斜体格式 _..._' });
+
+    if (/~~[\s\S]+?~~/.test(text))
+      issues.push({ id: 'strikethrough', level: 'error', msg: '含有删除线格式 ~~...~~' });
+
+    if (type !== 'table' && /<[a-zA-Z][\s\S]*?>/.test(text))
+      issues.push({ id: 'html', level: 'error', msg: '含有 HTML 标签' });
+
+    if (/^>\s/m.test(text))
+      issues.push({ id: 'blockquote', level: 'error', msg: '含有引用块格式 > ' });
+
+    return issues;
+  }
+
+// ========== 自动修复文本 ==========
+function autoFixText(text, type) {
+    var result = text;
+    result = result.replace(/\*\*(.+?)\*\*/g, '$1');
+    result = result.replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, '$1');
+    result = result.replace(/(?<!\w)_(?![0-9a-zA-Z{\\])(.+?)_(?!\w)/g, '$1');
+    result = result.replace(/~~(.+?)~~/g, '$1');
+    result = result.replace(/^>\s/gm, '');
+    return result;
+  }
+
+  // ========== 颜色变暗 ==========
+  function darkenColor(color, amount) {
+    // 支持 #rgb 和 #rrggbb 格式
+    var hex = color.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    r = Math.max(0, Math.min(255, r - amount));
+    g = Math.max(0, Math.min(255, g - amount));
+    b = Math.max(0, Math.min(255, b - amount));
+    return '#' + 
+      (r < 16 ? '0' : '') + r.toString(16) +
+      (g < 16 ? '0' : '') + g.toString(16) +
+      (b < 16 ? '0' : '') + b.toString(16);
+  }
+
+  // ========== 防抖 ==========
+  function debounce(fn, delay) {
+    var timer;
+    return function() {
+      var args = arguments;
+      var ctx = this;
+      clearTimeout(timer);
+      timer = setTimeout(function() { fn.apply(ctx, args); }, delay);
+    };
+  }
+
+  // ========== 复制到剪贴板 ==========
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        resolve();
+      } catch(e) {
+        reject(e);
+      }
+    });
+  }
+
+  // ========== 多边形顺时针检测（屏幕坐标系，y轴向下） ==========
+  function isClockwise(coords) {
+    if (!coords || !coords.points || coords.points.length < 3) return true;
+    var points = coords.points;
+    var sum = 0;
+    for (var i = 0; i < points.length; i++) {
+      var p1 = points[i];
+      var p2 = points[(i + 1) % points.length];
+      sum += (p2.x - p1.x) * (p2.y + p1.y);
+    }
+    // 屏幕坐标系y轴向下，sum < 0表示顺时针
+    return sum < 0;
+  }
+
+  // ========== 判断是否为轴对齐矩形 ==========
+  function isAxisAlignedRect(points) {
+    if (points.length !== 4) return false;
+    var xs = points.map(function(p) { return p.x; });
+    var ys = points.map(function(p) { return p.y; });
+    var uniqueXs = xs.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    var uniqueYs = ys.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    return uniqueXs.length === 2 && uniqueYs.length === 2;
+  }
+
+  // ========== 自适应高度 ==========
+  function autoResizeTextarea(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(32, ta.scrollHeight) + 'px';
+  }
+
+  // ========== 更新问题检测 ==========
+  function updateIssues(textArea, boxEl) {
+    var typeSelect = boxEl.querySelector('.agi-field-type');
+    var type = typeSelect ? typeSelect.value : 'paragraph';
+    var text = textArea.value;
+    var issues = detectIssues(text, type);
+    var badge = boxEl.querySelector('.agi-issue-badge');
+    var issuesPanel = boxEl.querySelector('.agi-text-issues');
+
+    var errorCount = issues.filter(function(i) { return i.level === 'error'; }).length;
+
+    if (issues.length === 0) {
+      badge.classList.add('agi-hidden');
+      badge.title = '';
+      issuesPanel.classList.add('agi-hidden');
+      issuesPanel.innerHTML = '';
+      return;
+    }
+
+    badge.classList.remove('agi-hidden');
+    if (errorCount > 0) {
+      badge.className = 'agi-issue-badge agi-issue-error';
+      badge.textContent = '⚠️ ' + errorCount;
+      badge.title = errorCount + ' 个格式问题，点击查看';
+    } else {
+      badge.className = 'agi-issue-badge agi-issue-info';
+      badge.textContent = 'ℹ️ ' + issues.length;
+      badge.title = issues.length + ' 个提示，点击查看';
+    }
+
+    badge.onclick = function() {
+      if (issuesPanel.classList.contains('agi-hidden')) {
+        renderIssuesPanel(issuesPanel, issues, textArea, boxEl);
+        issuesPanel.classList.remove('agi-hidden');
+      } else {
+        issuesPanel.classList.add('agi-hidden');
+      }
+    };
+  }
+
+  // ========== 渲染问题面板 ==========
+  function renderIssuesPanel(panel, issues, textArea, boxEl) {
+    var html = '';
+    var hasFixable = issues.some(function(i) { return i.level === 'error'; });
+
+    if (hasFixable) {
+      html += '<div class="agi-issues-actions">' +
+        '<button class="agi-btn agi-btn-sm agi-btn-fix-all">🔧 一键修复</button>' +
+        '<button class="agi-btn agi-btn-sm agi-btn-undo agi-hidden">↩️ 撤销</button>' +
+      '</div>';
+    }
+
+    issues.forEach(function(issue) {
+      var icon = issue.level === 'error' ? '❌' : 'ℹ️';
+      var cls = issue.level === 'error' ? 'agi-issue-item-error' : 'agi-issue-item-info';
+      html += '<div class="agi-issue-item ' + cls + '">' + icon + ' ' + escapeHtml(issue.msg) + '</div>';
+    });
+
+    panel.innerHTML = html;
+
+    var btnFix = panel.querySelector('.agi-btn-fix-all');
+    var btnUndo = panel.querySelector('.agi-btn-undo');
+    if (btnFix) {
+      btnFix.addEventListener('click', function() {
+        var typeSelect = boxEl.querySelector('.agi-field-type');
+        var type = typeSelect ? typeSelect.value : 'paragraph';
+        var oldText = textArea.value;
+        var newText = autoFixText(oldText, type);
+        if (newText !== oldText) {
+          textArea.value = newText;
+          autoResizeTextarea(textArea);
+          saveToCache();
+          btnUndo.classList.remove('agi-hidden');
+          btnUndo._undoText = oldText;
+          btnFix.textContent = '✅ 已修复';
+          btnFix.disabled = true;
+          updateIssues(textArea, boxEl);
+        }
+      });
+    }
+    if (btnUndo) {
+      btnUndo.addEventListener('click', function() {
+        if (btnUndo._undoText !== undefined) {
+          textArea.value = btnUndo._undoText;
+          autoResizeTextarea(textArea);
+          saveToCache();
+          btnUndo.classList.add('agi-hidden');
+          var fixBtn = panel.querySelector('.agi-btn-fix-all');
+          if (fixBtn) {
+            fixBtn.textContent = '🔧 一键修复';
+            fixBtn.disabled = false;
+          }
+          updateIssues(textArea, boxEl);
+        }
+      });
+    }
+  }
+
+  // ========== 渲染预览 ==========
+  // 通过 KaTeX 渲染公式（同步）
+  function requestKatexRender(formulas) {
+    if (!window.katex) {
+      console.log('[Benchmark V3] KaTeX 未加载');
+      return null;
+    }
+    try {
+      var rendered = formulas.map(function(f) {
+        try {
+          return katex.renderToString(f.latex, {
+            displayMode: f.displayMode,
+            throwOnError: false
+          });
+        } catch(e) {
+          console.log('[Benchmark V3] KaTeX 渲染错误:', e.message);
+          return null;
+        }
+      });
+      return rendered;
+    } catch(e) {
+      console.log('[Benchmark V3] KaTeX 渲染失败:', e.message);
+      return null;
+    }
+  }
+
+  function renderTextPreview(text, type) {
+    // 0. 将字面 \n / \t 还原为真实换行/制表符，以便正确渲染
+    //    \t 仅豁免常见 LaTeX 命令前缀（\text \theta \tan \times \tau），其余 \t 均还原为制表符
+    var processed = text.replace(/\\n/g, '\n').replace(/\\t(?!(?:ext|het|an|imes|au))/g, '\t');
+    
+    // 1. 提取所有公式：\[...\] 块级 和 \(...\) 行内 和 $$...$$ 块级 和 $...$ 行内
+    var formulas = [];     // { latex, displayMode, placeholder, original }
+    var idx = 0;
+
+    // 块级公式 \[...\]（可能跨行）
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, function(m, inner) {
+      var ph = '\x00FORMULA_' + idx + '\x00';
+      formulas.push({ latex: inner.trim(), displayMode: true, placeholder: ph, original: m });
+      idx++;
+      return ph;
+    });
+
+    // 块级公式 $$...$$（可能跨行，先于 $ 单美元符号处理）
+    processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, function(m, inner) {
+      var ph = '\x00FORMULA_' + idx + '\x00';
+      formulas.push({ latex: inner.trim(), displayMode: true, placeholder: ph, original: m });
+      idx++;
+      return ph;
+    });
+
+    // 行内公式 \(...\)（可能含嵌套括号）
+    processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, function(m, inner) {
+      var ph = '\x00FORMULA_' + idx + '\x00';
+      formulas.push({ latex: inner.trim(), displayMode: false, placeholder: ph, original: m });
+      idx++;
+      return ph;
+    });
+
+    // 行内公式 $...$（单个美元符号，不含换行，排除已被 $$ 匹配的）
+    processed = processed.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, function(m, inner) {
+      var ph = '\x00FORMULA_' + idx + '\x00';
+      formulas.push({ latex: inner.trim(), displayMode: false, placeholder: ph, original: m });
+      idx++;
+      return ph;
+    });
+
+    // 2. 通过 KaTeX 渲染所有公式
+    var renderedFormulas = null;
+    if (formulas.length > 0) {
+      renderedFormulas = requestKatexRender(formulas);
+    }
+
+    // 3. 构建最终 HTML
+    var html;
+    if (type === 'table') {
+      html = processed;
+    } else {
+      html = escapeHtml(processed);
+      html = html.replace(/\n/g, '<br>');
+      html = html.replace(/(\t+)/g, function(m) {
+        var count = m.length;
+        return '<span style="display:inline-block;text-align:center;min-width:' + (count * 4) + 'ch;background:rgba(255,165,0,0.2);border-radius:3px;color:#b8860b;font-size:0.85em;">L' + count + '</span>';
+      });
+    }
+
+    // 4. 替换占位符为渲染结果
+    for (var i = 0; i < formulas.length; i++) {
+      var f = formulas[i];
+      var rendered;
+      if (renderedFormulas && renderedFormulas[i]) {
+        rendered = renderedFormulas[i];
+      } else {
+        // KaTeX 不可用，降级为蓝色高亮显示原始公式源码（保留原始定界符）
+        var escapedOriginal = escapeHtml(f.original);
+        if (f.displayMode) {
+          rendered = '<div class="agi-formula-block">' + escapedOriginal + '</div>';
+        } else {
+          rendered = '<span class="agi-formula-inline">' + escapedOriginal + '</span>';
+        }
+      }
+      // 在非 table 模式下占位符也被 escapeHtml 了，需要匹配转义后的形式
+      var phEscaped = escapeHtml(f.placeholder);
+      html = html.split(phEscaped).join(rendered);
+      html = html.split(f.placeholder).join(rendered);
+    }
+
+    var cls = type === 'table' ? 'agi-render-content agi-render-table' : 'agi-render-content';
+    return '<div class="' + cls + '">' + html + '</div>';
+  }
+
+  // ========== 刷新已展开的渲染 ==========
+  function refreshOpenRender(boxEl, textArea) {
+    var renderDiv = boxEl.querySelector('.agi-text-render');
+    if (!renderDiv || renderDiv.classList.contains('agi-hidden')) return;
+    
+    var typeSelect = boxEl.querySelector('.agi-field-type');
+    var type = typeSelect ? typeSelect.value : 'paragraph';
+    renderDiv.innerHTML = renderTextPreview(textArea.value, type);
+  }
+
+  // ========== 渲染图片上的标注框 ==========
+  function renderAnnotationBoxes() {
+    // 清除旧的标注框
+    var oldBoxes = imageWrapper.querySelectorAll('.agi-annotation-box');
+    for (var i = 0; i < oldBoxes.length; i++) {
+      oldBoxes[i].parentNode.removeChild(oldBoxes[i]);
+    }
+
+    if (!imageNaturalWidth || !imageNaturalHeight || !imageDisplayWidth || !imageDisplayHeight) {
+      return;
+    }
+
+    var scaleX = imageDisplayWidth / imageNaturalWidth;
+    var scaleY = imageDisplayHeight / imageNaturalHeight;
+
+    boxesData.forEach(function(box, idx) {
+      if (!box.coords) return;
+
+      // PDF模式下，只渲染当前页的标注框
+      if (currentContentType === 'pdf' && box.page && box.page !== pdfCurrentPage) {
+        return;
+      }
+
+      var left, top, width, height;
+      var isPolygon = box.annotationType === 'POLYGON';
+
+      if (isPolygon && box.coords.points) {
+        // 多边形：使用points计算包围盒
+        var points = box.coords.points;
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (var i = 0; i < points.length; i++) {
+          if (points[i].x < minX) minX = points[i].x;
+          if (points[i].y < minY) minY = points[i].y;
+          if (points[i].x > maxX) maxX = points[i].x;
+          if (points[i].y > maxY) maxY = points[i].y;
+        }
+        left = minX * scaleX;
+        top = minY * scaleY;
+        width = (maxX - minX) * scaleX;
+        height = (maxY - minY) * scaleY;
+      } else if (box.coords.x1 !== undefined) {
+        // 矩形
+        var x1 = box.coords.x1;
+        var y1 = box.coords.y1;
+        var x2 = box.coords.x2;
+        var y2 = box.coords.y2;
+        left = Math.min(x1, x2) * scaleX;
+        top = Math.min(y1, y2) * scaleY;
+        width = Math.abs(x2 - x1) * scaleX;
+        height = Math.abs(y2 - y1) * scaleY;
+      } else {
+        return;
+      }
+
+      var boxEl = document.createElement('div');
+      boxEl.className = 'agi-annotation-box';
+      boxEl.style.left = left + 'px';
+      boxEl.style.top = top + 'px';
+      boxEl.style.width = width + 'px';
+      boxEl.style.height = height + 'px';
+      boxEl.dataset.index = idx;
+      boxEl.dataset.boxIndex = box.index;
+
+      if (isPolygon && box.coords.points) {
+        // 多边形：不显示默认边框，只画实际边线和顶点（可拖拽）
+        boxEl.style.border = 'none';
+        boxEl.style.background = 'transparent';
+        var pts = box.coords.points;
+        for (var pIdx = 0; pIdx < pts.length; pIdx++) {
+          var pt = pts[pIdx];
+          var dX = pt.x * scaleX;
+          var dY = pt.y * scaleY;
+          // 顶点圆圈（可拖拽）
+          var pointEl = document.createElement('div');
+          pointEl.className = 'agi-annotation-polygon-point';
+          pointEl.style.left = (dX - left - 4) + 'px';
+          pointEl.style.top = (dY - top - 4) + 'px';
+          pointEl.style.cursor = 'move';
+          pointEl.dataset.pointIndex = pIdx;
+          pointEl.dataset.boxIndex = idx;
+          // 添加拖拽事件
+          (function(boxIdx, pointIdx, pointEl) {
+            pointEl.addEventListener('mousedown', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              startDragPolygonVertex(e, boxIdx, pointIdx);
+            });
+          })(idx, pIdx, pointEl);
+          boxEl.appendChild(pointEl);
+          // 边线
+          var nextPt = pts[(pIdx + 1) % pts.length];
+          var nX = nextPt.x * scaleX;
+          var nY = nextPt.y * scaleY;
+          var len = Math.sqrt(Math.pow(nX - dX, 2) + Math.pow(nY - dY, 2));
+          var ang = Math.atan2(nY - dY, nX - dX) * 180 / Math.PI;
+          var lineEl = document.createElement('div');
+          lineEl.className = 'agi-annotation-polygon-line';
+          lineEl.style.left = (dX - left) + 'px';
+          lineEl.style.top = (dY - top) + 'px';
+          lineEl.style.width = len + 'px';
+          lineEl.style.transform = 'rotate(' + ang + 'deg)';
+          boxEl.appendChild(lineEl);
+        }
+      }
+
+      // 序号标签
+      var label = document.createElement('span');
+      label.className = 'agi-box-label';
+      label.textContent = box.index;
+      boxEl.appendChild(label);
+
+      // 删除按钮
+      var deleteBtn = document.createElement('div');
+      deleteBtn.className = 'agi-box-delete-btn';
+      deleteBtn.innerHTML = '×';
+      deleteBtn.title = '删除此标注框';
+      deleteBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        deleteBox(idx);
+      });
+      boxEl.appendChild(deleteBtn);
+
+      // 缩放手柄（仅对矩形框显示）
+      if (box.annotationType !== 'POLYGON') {
+        var handles = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
+        handles.forEach(function(h) {
+          var handle = document.createElement('div');
+          handle.className = 'agi-resize-handle agi-resize-' + h;
+          handle.addEventListener('mousedown', function(e) {
+            startResizeBox(e, idx, h);
+          });
+          boxEl.appendChild(handle);
+        });
+      }
+
+      // 点击事件：跳转到对应的标注项
+      boxEl.addEventListener('click', function(e) {
+        if (e.target.classList.contains('agi-resize-handle') || 
+            e.target.classList.contains('agi-box-delete-btn')) return;
+        e.stopPropagation();
+        jumpToAnnotationItem(idx);
+      });
+
+      // 拖拽移动
+      boxEl.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('agi-resize-handle') || 
+            e.target.classList.contains('agi-box-delete-btn')) return;
+        startDragBox(e, idx);
+      });
+
+      imageWrapper.appendChild(boxEl);
+    });
+
+    // 应用关联组颜色
+    applyBoxGroupColors();
+  }
+
+  // ========== 应用关联组颜色到标注框 ==========
+  function applyBoxGroupColors() {
+    var groupMap = computeAttachGroups();
+    var boxEls = imageWrapper.querySelectorAll('.agi-annotation-box');
+    var items = boxList.querySelectorAll('.agi-box-item');
+    
+    // 建立数组索引到输入字段index的映射（使用data-index属性）
+    var arrayIndexToFieldIndex = {};
+    items.forEach(function(item) {
+      var dataArrayIdx = parseInt(item.dataset.index);
+      if (isNaN(dataArrayIdx)) return;
+      var idxInput = item.querySelector('.agi-field-index');
+      if (idxInput) {
+        var fieldIdx = parseInt(idxInput.value);
+        if (!isNaN(fieldIdx)) {
+          arrayIndexToFieldIndex[dataArrayIdx] = fieldIdx;
+        }
+      }
+    });
+    
+    // 应用到图片上的标注框 - 使用边框高亮，透明背景（不遮盖文字）
+    boxEls.forEach(function(boxEl) {
+      var arrayIdx = parseInt(boxEl.dataset.index);
+      // 使用输入字段中的index，保持与面板一致
+      var boxIndex = arrayIndexToFieldIndex[arrayIdx];
+      if (boxIndex === undefined) {
+        var box = boxesData[arrayIdx];
+        boxIndex = box ? box.index : arrayIdx;
+      }
+      var color = groupMap[boxIndex];
+      if (color) {
+        // 边框同色高亮，背景透明
+        boxEl.style.borderColor = color;
+        boxEl.style.borderWidth = '3px';
+        boxEl.style.background = 'transparent';
+        var label = boxEl.querySelector('.agi-box-label');
+        if (label) {
+          label.style.background = color;
+        }
+      } else {
+        boxEl.style.borderColor = 'rgba(102, 126, 234, 0.8)';
+        boxEl.style.borderWidth = '2px';
+        boxEl.style.background = 'rgba(102, 126, 234, 0.1)';
+        var label = boxEl.querySelector('.agi-box-label');
+        if (label) {
+          label.style.background = 'rgba(102, 126, 234, 0.9)';
+        }
+      }
+    });
+    
+    // 应用到面板中的box item（背景和左边框）
+    items.forEach(function(item) {
+      var idxInput = item.querySelector('.agi-field-index');
+      if (!idxInput) return;
+      var boxIndex = parseInt(idxInput.value);
+      var color = groupMap[boxIndex];
+      if (color) {
+        item.style.background = color + '20'; // 20% 透明度
+        item.style.borderLeft = '3px solid ' + color;
+      } else {
+        item.style.background = '#fafafa';
+        item.style.borderLeft = '3px solid transparent';
+      }
+    });
+  }
+
+  // ========== 跳转到标注项（双向联动） ==========
+  function jumpToAnnotationItem(arrayIdx, fromPanel) {
+    // 移除所有active状态
+    var allBoxes = imageWrapper.querySelectorAll('.agi-annotation-box');
+    for (var i = 0; i < allBoxes.length; i++) {
+      allBoxes[i].classList.remove('agi-active');
+    }
+    
+    // 移除所有面板项的active状态
+    var allItems = boxList.querySelectorAll('.agi-box-item');
+    for (var i = 0; i < allItems.length; i++) {
+      allItems[i].classList.remove('agi-item-active');
+    }
+    
+    // 添加active状态到图片上的标注框
+    var targetBox = imageWrapper.querySelector('.agi-annotation-box[data-index="' + arrayIdx + '"]');
+    if (targetBox) {
+      targetBox.classList.add('agi-active');
+      // 如果从面板点击，滚动图片区域到对应标注框
+      if (fromPanel) {
+        var container = document.getElementById('agi-image-container');
+        var boxRect = targetBox.getBoundingClientRect();
+        var containerRect = container.getBoundingClientRect();
+        container.scrollTo({
+          top: container.scrollTop + boxRect.top - containerRect.top - containerRect.height / 2 + boxRect.height / 2,
+          left: container.scrollLeft + boxRect.left - containerRect.left - containerRect.width / 2 + boxRect.width / 2,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    // 滚动面板到对应的标注项并高亮（通过data-index查找面板项）
+    var targetPanelItem = boxList.querySelector('.agi-box-item[data-index="' + arrayIdx + '"]');
+    if (targetPanelItem) {
+      // 移除旧的highlight
+      for (var i = 0; i < allItems.length; i++) {
+        allItems[i].classList.remove('agi-group-highlight');
+      }
+      
+      // 滚动到目标
+      targetPanelItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // 添加高亮动画
+      targetPanelItem.classList.add('agi-group-highlight');
+      targetPanelItem.classList.add('agi-item-active');
+      setTimeout(function() {
+        targetPanelItem.classList.remove('agi-group-highlight');
+        targetPanelItem.classList.remove('agi-item-active');
+      }, 2000);
+    }
+  }
+
+  // ========== 从面板点击跳转到图片标注框 ==========
+  function jumpToImageBox(arrayIdx) {
+    // arrayIdx是boxesData中的数组索引，直接用于跳转
+    jumpToAnnotationItem(arrayIdx, true);
+  }
+
+  // ========== 计算关联组 ==========
+  function computeAttachGroups() {
+    var items = boxList.querySelectorAll('.agi-box-item');
+    var indexMap = {};
+    var attachMap = {};
+
+    items.forEach(function(item) {
+      var idx = parseInt(item.querySelector('.agi-field-index').value);
+      if (isNaN(idx)) return;
+      indexMap[idx] = true;
+      var raw = item.querySelector('.agi-field-attach-index').value.trim();
+      var arr = (raw === '-1' || raw === '') ? [] : raw.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n) && n !== -1; });
+      attachMap[idx] = arr;
+    });
+
+    var parent = {};
+    Object.keys(indexMap).forEach(function(k) { parent[k] = k; });
+    function find(x) {
+      if (parent[x] !== x) parent[x] = find(parent[x]);
+      return parent[x];
+    }
+    function union(a, b) {
+      var ra = find(a), rb = find(b);
+      if (ra !== rb) parent[ra] = rb;
+    }
+
+    Object.keys(attachMap).forEach(function(idx) {
+      var targets = attachMap[idx];
+      targets.forEach(function(t) {
+        if (indexMap[t]) {
+          union(idx, t);
+        }
+      });
+    });
+
+    var groups = {};
+    Object.keys(indexMap).forEach(function(idx) {
+      var root = find(idx);
+      if (!groups[root]) groups[root] = [];
+      groups[root].push(parseInt(idx));
+    });
+
+    var groupMap = {};
+    var colorIdx = 0;
+    Object.keys(groups).forEach(function(root) {
+      var members = groups[root];
+      if (members.length >= 2) {
+        var color = ATTACH_COLORS[colorIdx % ATTACH_COLORS.length];
+        colorIdx++;
+        members.forEach(function(m) {
+          groupMap[m] = color;
+        });
+      }
+    });
+
+    return groupMap;
+  }
+
+  // ========== attach_index 关联显示 ==========
+  function updateAttachHighlight() {
+    var items = boxList.querySelectorAll('.agi-box-item');
+    var info = collectAttachRelations();
+    var relations = info.relations;
+    var itemByIndex = info.itemByIndex;
+
+    items.forEach(function(item) {
+      var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
+      var badgeContainer = item.querySelector('.agi-attach-badge');
+      if (!badgeContainer) return;
+      badgeContainer.innerHTML = '';
+
+      var forward = relations[fieldIndex] ? relations[fieldIndex].filter(function(n) { return n !== fieldIndex; }) : [];
+      var backward = [];
+      Object.keys(relations).forEach(function(k) {
+        var from = parseInt(k);
+        if (from !== fieldIndex && relations[from].indexOf(fieldIndex) !== -1) {
+          backward.push(from);
+        }
+      });
+
+      forward.sort(function(a, b) { return a - b; }).forEach(function(n) {
+        var badge = document.createElement('span');
+        badge.className = 'agi-attach-badge-item';
+        badge.textContent = '→' + n;
+        badge.style.cursor = 'pointer';
+        badge.addEventListener('click', function() {
+          jumpAndFlash(n, info.itemByIndex);
+        });
+        badgeContainer.appendChild(badge);
+      });
+      backward.sort(function(a, b) { return a - b; }).forEach(function(n) {
+        var badge = document.createElement('span');
+        badge.className = 'agi-attach-badge-item';
+        badge.style.background = '#9254de';
+        badge.textContent = '←' + n;
+        badge.style.cursor = 'pointer';
+        badge.addEventListener('click', function() {
+          jumpAndFlash(n, info.itemByIndex);
+        });
+        badgeContainer.appendChild(badge);
+      });
+    });
+  }
+
+  function collectAttachRelations() {
+    var items = boxList.querySelectorAll('.agi-box-item');
+    var relations = {};
+    var itemByIndex = {};
+    items.forEach(function(item) {
+      var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
+      itemByIndex[fieldIndex] = item;
+      var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
+      var attachIndices = parseAttachValues(attachRaw);
+      if (attachIndices.length > 0) {
+        relations[fieldIndex] = attachIndices;
+      }
+    });
+    return { relations: relations, itemByIndex: itemByIndex };
+  }
+
+  function parseAttachValues(str) {
+    if (!str || str === '-1' || str.trim() === '') return [];
+    return str.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n) && n !== -1; });
+  }
+
+  function jumpAndFlash(targetIndex, itemByIndex) {
+    var target = itemByIndex[targetIndex];
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('agi-group-highlight');
+    setTimeout(function() { target.classList.remove('agi-group-highlight'); }, 2000);
+  }
+
+  // ========== 渲染标注UI ==========
+  function renderAnnotationUI() {
+    annotationArea.classList.remove('agi-hidden');
+    emptyState.style.display = 'none';
+    boxList.innerHTML = '';
+
+    // 按index值排序（index小的在前）
+    var sortedBoxes = boxesData.map(function(box, idx) { return { box: box, idx: idx }; });
+    sortedBoxes.sort(function(a, b) {
+      var idxA = parseInt(a.box.index);
+      var idxB = parseInt(b.box.index);
+      // 空index排在最后
+      if (isNaN(idxA) && isNaN(idxB)) return 0;
+      if (isNaN(idxA)) return 1;
+      if (isNaN(idxB)) return -1;
+      return idxA - idxB;
+    });
+
+    sortedBoxes.forEach(function(entry) {
+      var box = entry.box;
+      var idx = entry.idx;
+      var position = coordsToPosition(box.coords);
+      var positionStr = position ? '[' + position.join(', ') + ']' : '无坐标';
+
+      var typeLabel = '拉框';
+      var isPolygon = box.annotationType === 'POLYGON' ||
+        (box.coords && box.coords.points && box.coords.points.length > 4);
+      if (isPolygon) {
+        typeLabel = '多边形';
+      }
+
+      var cwWarning = '';
+      if (isPolygon && box.coords && box.coords.points && box.coords.points.length >= 3) {
+        var cw = isClockwise(box.coords);
+        console.log('Debug: isPolygon=' + isPolygon + ', points=' + box.coords.points.length + ', isClockwise=' + cw);
+        if (!cw) {
+          cwWarning = ' <span class="agi-warn-badge" title="⚠️ 多边形未按顺时针方向标注">⚠️ 非顺时针</span>';
+        }
+      }
+
+      var boxEl = document.createElement('div');
+      boxEl.className = 'agi-box-item';
+      boxEl.dataset.index = idx;
+      boxEl.dataset.boxIndex = box.index;
+
+      // 从boxesData中读取所有字段值，空值保持为空（不设置默认值）
+      var fieldPage = (box.page !== undefined && box.page !== null) ? box.page : '';
+      var fieldType = box.type || '';
+      var fieldLocation = box.location || '';
+      var fieldTitleLevel = (box.title_level !== undefined && box.title_level !== null) ? box.title_level : '';
+      var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '';
+      var fieldText = box.description || box.text || '';
+
+      // 生成type选项，设置selected（空值时显示空选项）
+      var typeOptionsHtml = '';
+      if (!fieldType) {
+        typeOptionsHtml += '<option value="" selected disabled>请选择</option>';
+      }
+      typeOptionsHtml += TYPE_OPTIONS.map(function(t) {
+        var selected = (t === fieldType) ? ' selected' : '';
+        return '<option value="' + t + '"' + selected + '>' + t + '</option>';
+      }).join('');
+
+      // 生成location选项，设置selected（空值时显示空选项）
+      var locationOptionsHtml = '';
+      if (!fieldLocation) {
+        locationOptionsHtml += '<option value="" selected disabled>请选择</option>';
+      }
+      locationOptionsHtml += LOCATION_OPTIONS.map(function(l) {
+        var selected = (l === fieldLocation) ? ' selected' : '';
+        return '<option value="' + l + '"' + selected + '>' + l + '</option>';
+      }).join('');
+
+      boxEl.innerHTML = '<div class="agi-box-header">' +
+        '<span class="agi-box-title">' + typeLabel + ' #' + box.index + cwWarning + '<span class="agi-attach-badge"></span></span>' +
+        '<span class="agi-box-coords">' + positionStr + '</span>' +
+      '</div>' +
+      '<div class="agi-box-fields">' +
+        '<div class="agi-box-row">' +
+          '<div class="agi-box-field">' +
+            '<label>index:</label>' +
+            '<input type="number" class="agi-field-index" value="' + (box.index !== undefined ? box.index : idx) + '" min="0" step="1">' +
+          '</div>' +
+          '<div class="agi-box-field">' +
+            '<label>page:</label>' +
+            '<input type="number" class="agi-field-page" value="' + fieldPage + '" min="0" step="1">' +
+          '</div>' +
+        '</div>' +
+        '<div class="agi-box-row">' +
+          '<div class="agi-box-field">' +
+            '<label>type:</label>' +
+            '<select class="agi-field-type">' + typeOptionsHtml + '</select>' +
+          '</div>' +
+          '<div class="agi-box-field">' +
+            '<label>location:</label>' +
+            '<select class="agi-field-location">' + locationOptionsHtml + '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="agi-box-row">' +
+          '<div class="agi-box-field">' +
+            '<label>title_level:</label>' +
+            '<input type="number" class="agi-field-title-level" value="' + fieldTitleLevel + '" min="-1" max="5" step="1">' +
+          '</div>' +
+          '<div class="agi-box-field">' +
+            '<label>attach_index:</label>' +
+            '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="-1" style="width:80px;">' +
+          '</div>' +
+        '</div>' +
+        '<div class="agi-box-field agi-full-width">' +
+          '<label>text:</label>' +
+          '<div class="agi-text-wrap">' +
+            '<textarea class="agi-field-text" placeholder="版面对象的序列化内容">' + escapeHtml(fieldText) + '</textarea>' +
+            '<div class="agi-text-actions">' +
+              '<button class="agi-btn agi-btn-sm agi-btn-copy-text" title="复制 text">复制</button>' +
+              '<button class="agi-btn agi-btn-sm agi-btn-render-text" title="渲染预览">渲染</button>' +
+              '<span class="agi-issue-badge agi-hidden" title=""></span>' +
+            '</div>' +
+            '<div class="agi-text-issues agi-hidden"></div>' +
+            '<div class="agi-text-render agi-hidden"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      boxList.appendChild(boxEl);
+
+      // 点击面板标注项跳转到图片标注框
+      boxEl.addEventListener('click', function(e) {
+        // 如果点击的是input、select、textarea或button，不触发跳转
+        var tag = e.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'select' || tag === 'textarea' || tag === 'button') return;
+        jumpToImageBox(idx);
+      });
+
+      var textArea = boxEl.querySelector('.agi-field-text');
+      var btnCopyText = boxEl.querySelector('.agi-btn-copy-text');
+      var btnRenderText = boxEl.querySelector('.agi-btn-render-text');
+
+      autoResizeTextarea(textArea);
+      textArea.addEventListener('input', function() {
+        autoResizeTextarea(textArea);
+        updateIssues(textArea, boxEl);
+        // 刷新已展开的渲染
+        refreshOpenRender(boxEl, textArea);
+      });
+
+      textArea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var s = this.selectionStart, en = this.selectionEnd;
+          this.value = this.value.substring(0, s) + '\\n' + this.value.substring(en);
+          this.selectionStart = this.selectionEnd = s + 2;
+          this.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          var s = this.selectionStart, en = this.selectionEnd;
+          this.value = this.value.substring(0, s) + '\\t' + this.value.substring(en);
+          this.selectionStart = this.selectionEnd = s + 2;
+          this.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+
+      textArea.addEventListener('paste', function(e) {
+        e.preventDefault();
+        var clip = (e.clipboardData || window.clipboardData).getData('text');
+        var converted = clip.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t');
+        var s = this.selectionStart, en = this.selectionEnd;
+        this.value = this.value.substring(0, s) + converted + this.value.substring(en);
+        this.selectionStart = this.selectionEnd = s + converted.length;
+        this.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      btnCopyText.addEventListener('click', function() {
+        copyToClipboard(textArea.value).then(function() {
+          btnCopyText.textContent = '已复制';
+          setTimeout(function() { btnCopyText.textContent = '复制'; }, 1500);
+        });
+      });
+
+      // 渲染按钮点击事件
+      btnRenderText.addEventListener('click', function() {
+        var renderDiv = boxEl.querySelector('.agi-text-render');
+        if (!renderDiv) return;
+        
+        if (renderDiv.classList.contains('agi-hidden')) {
+          // 展开渲染
+          var typeSelect = boxEl.querySelector('.agi-field-type');
+          var type = typeSelect ? typeSelect.value : 'paragraph';
+          renderDiv.innerHTML = renderTextPreview(textArea.value, type);
+          renderDiv.classList.remove('agi-hidden');
+          btnRenderText.textContent = '收起';
+        } else {
+          // 收起渲染
+          renderDiv.classList.add('agi-hidden');
+          btnRenderText.textContent = '渲染';
+        }
+      });
+
+      updateIssues(textArea, boxEl);
+    });
+
+    boxList.querySelectorAll('input, select, textarea').forEach(function(el) {
+      // 更新boxesData的通用函数
+      function updateBoxData() {
+        var boxItem = el.closest('.agi-box-item');
+        if (!boxItem) return;
+        var arrayIdx = parseInt(boxItem.dataset.index);
+        if (isNaN(arrayIdx) || !boxesData[arrayIdx]) return;
+        var box = boxesData[arrayIdx];
+        
+        // 根据字段类型更新对应的boxesData属性
+        if (el.classList.contains('agi-field-index')) {
+          box.index = parseInt(el.value) || 0;
+        } else if (el.classList.contains('agi-field-page')) {
+          box.page = parseInt(el.value) || 0;
+        } else if (el.classList.contains('agi-field-type')) {
+          box.type = el.value;
+        } else if (el.classList.contains('agi-field-location')) {
+          box.location = el.value;
+        } else if (el.classList.contains('agi-field-title-level')) {
+          box.title_level = parseInt(el.value) || -1;
+        } else if (el.classList.contains('agi-field-attach-index')) {
+          box.attach_index = el.value;
+        } else if (el.classList.contains('agi-field-text')) {
+          box.description = el.value;
+          box.text = el.value;
+        }
+      }
+
+      el.addEventListener('change', function() { 
+        // 清除错误高亮
+        el.classList.remove('agi-field-error');
+        // 更新boxesData
+        updateBoxData();
+        saveToCache();
+        // attach_index变化时更新关联高亮
+        if (el.classList.contains('agi-field-attach-index')) {
+          updateAttachHighlight();
+          applyBoxGroupColors();
+        }
+      });
+      el.addEventListener('input', debounce(function() { 
+        // 清除错误高亮
+        el.classList.remove('agi-field-error');
+        // 更新boxesData
+        updateBoxData();
+        saveToCache();
+        // attach_index变化时更新关联高亮
+        if (el.classList.contains('agi-field-attach-index')) {
+          updateAttachHighlight();
+          applyBoxGroupColors();
+        }
+      }, 800));
+      // 点击输入字段时自动选中内容（便于直接替换）
+      if (el.classList.contains('agi-field-index') || 
+          el.classList.contains('agi-field-page') || 
+          el.classList.contains('agi-field-title-level') || 
+          el.classList.contains('agi-field-attach-index')) {
+        el.addEventListener('click', function() {
+          this.select();
+        });
+      }
+      // index字段：记录旧值，用于冲突检测
+      if (el.classList.contains('agi-field-index')) {
+        // focus时记录旧值
+        el.addEventListener('focus', function() {
+          this._oldIndex = parseInt(this.value) || 0;
+        });
+        el.addEventListener('change', function() {
+          var newIdx = parseInt(this.value);
+          if (!isNaN(newIdx) && newIdx >= 0) {
+            // 找到对应的 .agi-box-item 父元素
+            var boxItem = this.closest('.agi-box-item');
+            if (boxItem) {
+              boxItem._oldIndex = parseInt(this._oldIndex) || newIdx;
+              handleIndexConflict(boxItem, newIdx);
+            }
+            renderAnnotationUI();
+            updateAttachHighlight();
+            applyBoxGroupColors();
+            renderAnnotationBoxes();
+            saveToCache();
+          }
+        });
+      }
+      // text区域也支持点击选中
+      if (el.classList.contains('agi-field-text')) {
+        el.addEventListener('focus', function() {
+          // 不自动全选，保持原有行为
+        });
+      }
+    });
+
+    // 更新attach高亮
+    updateAttachHighlight();
+    // 应用关联组颜色
+    applyBoxGroupColors();
+  }
+
+// ========== 清除字段错误高亮 ==========
+function clearFieldErrors() {
+  var errorFields = boxList.querySelectorAll('.agi-field-error');
+  errorFields.forEach(function(field) {
+    field.classList.remove('agi-field-error');
+  });
+}
+
+// ========== 验证必填字段 ==========
+function validateRequiredFields() {
+  clearFieldErrors();
+  var firstError = null;
+  var errorMessages = [];
+  
+  var boxItems = boxList.querySelectorAll('.agi-box-item');
+  
+  boxItems.forEach(function(item, idx) {
+    var boxTitle = item.querySelector('.agi-box-title');
+    var itemLabel = boxTitle ? boxTitle.textContent : ('第' + (idx + 1) + '项');
+    
+    // 验证 index
+    var indexField = item.querySelector('.agi-field-index');
+    if (!indexField.value.trim()) {
+      indexField.classList.add('agi-field-error');
+      if (!firstError) firstError = indexField;
+      errorMessages.push(itemLabel + ': index为空');
+    }
+    
+    // 验证 page
+    var pageField = item.querySelector('.agi-field-page');
+    if (!pageField.value.trim()) {
+      pageField.classList.add('agi-field-error');
+      if (!firstError) firstError = pageField;
+      errorMessages.push(itemLabel + ': page为空');
+    }
+    
+    // 验证 type
+    var typeField = item.querySelector('.agi-field-type');
+    if (!typeField.value.trim()) {
+      typeField.classList.add('agi-field-error');
+      if (!firstError) firstError = typeField;
+      errorMessages.push(itemLabel + ': type为空');
+    }
+    
+    // 验证 location
+    var locationField = item.querySelector('.agi-field-location');
+    if (!locationField.value.trim()) {
+      locationField.classList.add('agi-field-error');
+      if (!firstError) firstError = locationField;
+      errorMessages.push(itemLabel + ': location为空');
+    }
+    
+    // 验证 title_level
+    var titleLevelField = item.querySelector('.agi-field-title-level');
+    if (!titleLevelField.value.trim()) {
+      titleLevelField.classList.add('agi-field-error');
+      if (!firstError) firstError = titleLevelField;
+      errorMessages.push(itemLabel + ': title_level为空');
+    }
+    
+    // 验证 attach_index
+    var attachIndexField = item.querySelector('.agi-field-attach-index');
+    if (!attachIndexField.value.trim()) {
+      attachIndexField.classList.add('agi-field-error');
+      if (!firstError) firstError = attachIndexField;
+      errorMessages.push(itemLabel + ': attach_index为空');
+    }
+    
+    // text字段允许为空，不验证
+  });
+  
+  if (firstError) {
+    // 滚动到第一个错误字段
+    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    firstError.focus();
+    return { valid: false, errors: errorMessages };
+  }
+  
+  return { valid: true, errors: [] };
+}
+
+// ========== 构建结果 ==========
+function buildResult() {
+  var validation = validateRequiredFields();
+  if (!validation.valid) {
+    showStatus('❌ 导出失败：存在空字段\n' + validation.errors.join('\n'), 'error');
+    return null;
+  }
+  
+  var version = 'V1.0';
+  var updateTime = fetchedTime || getLocalTimeString();
+  var contents = [];
+  var boxItems = boxList.querySelectorAll('.agi-box-item');
+
+  boxItems.forEach(function(item, idx) {
+    var box = boxesData[idx];
+    var position = coordsToPosition(box ? box.coords : null);
+    var titleLevel = parseInt(item.querySelector('.agi-field-title-level').value);
+    var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
+    var attachArr = attachRaw === '-1' || attachRaw === '' ? [] : attachRaw.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); });
+    var attachIndex = attachArr.length === 0 ? -1 : (attachArr.length === 1 ? attachArr[0] : attachArr);
+
+    contents.push({
+      index: parseInt(item.querySelector('.agi-field-index').value) || 0,
+      page: parseInt(item.querySelector('.agi-field-page').value) || 0,
+      position: position || [],
+      attribute: {
+        type: item.querySelector('.agi-field-type').value,
+        location: item.querySelector('.agi-field-location').value,
+        title_level: isNaN(titleLevel) ? -1 : titleLevel,
+        attach_index: attachIndex
+      },
+      text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t')
+    });
+  });
+
+  return { update_time: updateTime, version: version, contents: contents };
+}
+
+  // ========== 下载JSON文件到本地 ==========
+  function saveDataToPlatform() {
+    var result = buildResult();
+    if (!result) return null;
+    var jsonStr = JSON.stringify(result, null, 2);
+    resultJson.value = jsonStr;
+    resultArea.classList.remove('agi-hidden');
+    emptyState.style.display = 'none';
+
+    // 创建并下载JSON文件
+    var blob = new Blob([jsonStr], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'benchmark-v3-annotation-' + getLocalTimeString().replace(/[:.]/g, '-') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showStatus('✅ 已下载JSON文件到本地', 'success');
+    saveToCache();
+    return result;
+  }
+
+  // ========== 导出JSON ==========
+  function handleExport() {
+    var result = buildResult();
+    if (!result) return;
+    var jsonStr = JSON.stringify(result, null, 2);
+    resultJson.value = jsonStr;
+    resultArea.classList.remove('agi-hidden');
+    emptyState.style.display = 'none';
+    showStatus('📋 已生成JSON结果', 'info');
+  }
+
+  // ========== 缓存操作 ==========
+  function getCacheKey() {
+    return 'agi_annotation_cache_v2';
+  }
+
+  function saveToCache() {
+    try {
+      var formData = [];
+      var items = boxList.querySelectorAll('.agi-box-item');
+      items.forEach(function(item) {
+        formData.push({
+          index: item.querySelector('.agi-field-index').value,
+          page: item.querySelector('.agi-field-page').value,
+          type: item.querySelector('.agi-field-type').value,
+          location: item.querySelector('.agi-field-location').value,
+          titleLevel: item.querySelector('.agi-field-title-level').value,
+          attachIndex: item.querySelector('.agi-field-attach-index').value,
+          text: item.querySelector('.agi-field-text').value
+        });
+      });
+
+      var cacheObj = {
+        boxesData: boxesData,
+        imageUrl: imageUrl,
+        imageInfo: imageInfo,
+        fetchedTime: fetchedTime,
+        formData: formData,
+        version: 'V1.0',
+        savedAt: getLocalTimeString()
+      };
+
+      safeStorageSet(getCacheKey(), cacheObj);
+    } catch(e) {}
+  }
+
+  function restoreFromCache() {
+    try {
+      var cache = safeStorageGet(getCacheKey());
+      if (!cache || !cache.boxesData || cache.boxesData.length === 0) return false;
+
+      boxesData = cache.boxesData;
+      imageUrl = cache.imageUrl || '';
+      imageInfo = cache.imageInfo;
+      fetchedTime = cache.fetchedTime;
+
+      // 恢复图片
+      if (imageUrl) {
+        loadImage(imageUrl);
+      }
+
+      renderAnnotationUI();
+
+      if (cache.formData) {
+        var items = boxList.querySelectorAll('.agi-box-item');
+        cache.formData.forEach(function(fd, i) {
+          if (i >= items.length) return;
+          var el = items[i];
+          el.querySelector('.agi-field-index').value = fd.index;
+          el.querySelector('.agi-field-page').value = fd.page;
+
+          var typeSelect = el.querySelector('.agi-field-type');
+          for (var k = 0; k < typeSelect.options.length; k++) {
+            if (typeSelect.options[k].value === fd.type) {
+              typeSelect.selectedIndex = k;
+              break;
+            }
+          }
+
+          var locSelect = el.querySelector('.agi-field-location');
+          for (var k = 0; k < locSelect.options.length; k++) {
+            if (locSelect.options[k].value === fd.location) {
+              locSelect.selectedIndex = k;
+              break;
+            }
+          }
+
+          el.querySelector('.agi-field-title-level').value = fd.titleLevel;
+          el.querySelector('.agi-field-attach-index').value = fd.attachIndex;
+          if (fd.text !== undefined) {
+            var ta = el.querySelector('.agi-field-text');
+            ta.value = fd.text.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+            autoResizeTextarea(ta);
+            updateIssues(ta, el);
+          }
+        });
+      }
+
+      updateAttachHighlight();
+      // 应用关联组颜色
+      applyBoxGroupColors();
+      showStatus('💾 已从缓存恢复 ' + boxesData.length + ' 个标注', 'info');
+
+      requestAnimationFrame(function() {
+        var allTas = boxList.querySelectorAll('.agi-field-text');
+        for (var tti = 0; tti < allTas.length; tti++) {
+          autoResizeTextarea(allTas[tti]);
+        }
+      });
+
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  function handleClearCache() {
+    if (!confirm('确定清除当前页面的缓存数据？此操作不可撤销。')) return;
+    safeStorageRemove(getCacheKey());
+    boxesData = [];
+    imageUrl = '';
+    imageInfo = null;
+    fetchedTime = '';
+    annotationArea.classList.add('agi-hidden');
+    resultArea.classList.add('agi-hidden');
+    boxList.innerHTML = '';
+    emptyState.style.display = '';
+    
+    // 清除图片和PDF
+    imageEl.src = '';
+    imageEl.classList.add('agi-hidden');
+    pdfCanvas.classList.add('agi-hidden');
+    pdfToolbar.classList.add('agi-hidden');
+    pdfDoc = null;
+    pdfCurrentPage = 1;
+    pdfTotalPages = 0;
+    currentContentType = 'none';
+    imageLoading.style.display = 'block';
+    imageLoading.textContent = '等待加载图片或PDF...';
+    
+    // 清除标注框
+    var oldBoxes = imageWrapper.querySelectorAll('.agi-annotation-box');
+    for (var i = 0; i < oldBoxes.length; i++) {
+      oldBoxes[i].parentNode.removeChild(oldBoxes[i]);
+    }
+    
+    showStatus('🗑️ 缓存已清除', 'success');
+  }
+
+  // ========== 标准化导入项 ==========
+  function normalizeItem(raw) {
+    var item = {};
+    item.index = raw.index;
+    item.page = raw.page !== undefined ? raw.page : 0;
+    item.position = raw.position;
+    item.text = raw.text !== undefined ? raw.text : '';
+
+    var attr = raw.attribute || {};
+    item.type = attr.type || raw.type || 'paragraph';
+    item.location = attr.location || raw.location || 'main';
+    item.title_level = attr.title_level !== undefined ? attr.title_level : (raw.title_level !== undefined ? raw.title_level : -1);
+    item.attach_index = attr.attach_index !== undefined ? attr.attach_index : (raw.attach_index !== undefined ? raw.attach_index : -1);
+
+    if (raw.version) item.version = raw.version;
+
+    return item;
+  }
+
+  // ========== 面板缩放控制 ==========
+  var MIN_ZOOM = 0.7;
+  var MAX_ZOOM = 1.5;
+
+  function initPanelZoom() {
+    var saved = parseFloat(safeStorageGet('agi_panel_zoom'));
+    if (!isNaN(saved) && saved >= MIN_ZOOM && saved <= MAX_ZOOM) {
+      panelZoom = saved;
+    }
+    applyPanelZoom();
+  }
+
+  function setPanelZoom(zoom) {
+    zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(zoom * 10) / 10));
+    if (zoom === panelZoom) return;
+    panelZoom = zoom;
+    applyPanelZoom();
+    safeStorageSet('agi_panel_zoom', panelZoom);
+  }
+
+  function applyPanelZoom() {
+    if (!panel) return;
+    panel.style.transform = 'scale(' + panelZoom + ')';
+    panel.style.transformOrigin = 'top right';
+    if (zoomLevelEl) {
+      zoomLevelEl.textContent = Math.round(panelZoom * 100) + '%';
+    }
+  }
+
+  // ========== 事件绑定 ==========
+  btnClose.addEventListener('click', function() {
+    panel.style.display = 'none';
+  });
+
+  btnMinimize.addEventListener('click', function() {
+    var body = panel.querySelector('.agi-panel-body');
+    var isMinimized = body.style.display === 'none';
+    if (isMinimized) {
+      body.style.display = '';
+      panel.style.resize = 'both';
+    } else {
+      body.style.display = 'none';
+      panel.style.resize = 'none';
+    }
+    btnMinimize.textContent = isMinimized ? '−' : '□';
+    btnMinimize.title = isMinimized ? '最小化' : '展开';
+  });
+
+  btnSave.addEventListener('click', saveDataToPlatform);
+  btnExport.addEventListener('click', handleExport);
+  btnClearCache.addEventListener('click', handleClearCache);
+
+  // 数据加载弹窗事件
+  btnLoadData.addEventListener('click', function() {
+    modalOverlay.style.display = 'flex';
+  });
+  modalClose.addEventListener('click', function() {
+    modalOverlay.style.display = 'none';
+  });
+  modalOverlay.addEventListener('click', function(e) {
+    if (e.target === modalOverlay) modalOverlay.style.display = 'none';
+  });
+  btnApplyData.addEventListener('click', function() {
+    var url = inputImageUrl.value.trim();
+    var jsonStr = inputJson.value.trim();
+    if (!url && !jsonStr) {
+      showStatus('⚠️ 请输入图片URL或JSON数据', 'error');
+      return;
+    }
+    modalOverlay.style.display = 'none';
+    applyLocalData(url, jsonStr);
+  });
+  btnCopy.addEventListener('click', function() {
+    copyToClipboard(resultJson.value).then(function() {
+      showStatus('✅ 已复制到剪贴板', 'success');
+    });
+  });
+  btnCloseResult.addEventListener('click', function() { resultArea.classList.add('agi-hidden'); });
+  btnZoomIn.addEventListener('click', function() { setPanelZoom(panelZoom + 0.1); });
+  btnZoomOut.addEventListener('click', function() { setPanelZoom(panelZoom - 0.1); });
+
+  // 绘制模式按钮事件
+  btnDrawRect.addEventListener('click', function() {
+    if (drawMode === 'rect') {
+      cancelDrawMode();
+    } else {
+      startDrawMode('rect');
+    }
+  });
+  btnDrawPolygon.addEventListener('click', function() {
+    if (drawMode === 'polygon') {
+      cancelDrawMode();
+    } else {
+      startDrawMode('polygon');
+    }
+  });
+  btnCancelDraw.addEventListener('click', function() {
+    cancelDrawMode();
+  });
+  btnClearAllBoxes.addEventListener('click', function() {
+    clearAllBoxes();
+  });
+  polygonPointsInput.addEventListener('change', function() {
+    var val = parseInt(this.value);
+    if (val >= 3 && val <= 6) {
+      polygonPointCount = val;
+    } else if (val > 6) {
+      this.value = 6;
+      polygonPointCount = 6;
+    } else if (val < 3) {
+      this.value = 3;
+      polygonPointCount = 3;
+    }
+  });
+
+  // PDF翻页和缩放事件
+  if (btnPdfPrev) btnPdfPrev.addEventListener('click', prevPage);
+  if (btnPdfNext) btnPdfNext.addEventListener('click', nextPage);
+  if (btnPdfZoomIn) btnPdfZoomIn.addEventListener('click', function() { setPDFScale(pdfScale + 0.25); });
+  if (btnPdfZoomOut) btnPdfZoomOut.addEventListener('click', function() { setPDFScale(pdfScale - 0.25); });
+
+  // ========== 拖动功能 ==========
+  var isDragging = false;
+  var startX, startY, startLeft, startTop;
+
+  header.addEventListener('mousedown', function(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    isDragging = true;
+    panel.classList.add('agi-dragging');
+    startX = e.clientX;
+    startY = e.clientY;
+    var rect = panel.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
+    var newLeft = startLeft + dx;
+    var newTop = startTop + dy;
+
+    var maxLeft = window.innerWidth - 60;
+    var maxTop = window.innerHeight - 40;
+    newLeft = Math.max(-panel.offsetWidth + 60, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+    panel.style.right = 'auto';
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (isDragging) {
+      isDragging = false;
+      panel.classList.remove('agi-dragging');
+    }
+    // 结束矩形绘制
+    if (drawMode === 'rect' && isDrawing) {
+      endRectDraw({});
+    }
+    // 结束标注框拖拽
+    if (isDraggingBox) {
+      endDragBox({});
+    }
+    // 结束标注框缩放
+    if (isResizingBox) {
+      endResizeBox({});
+    }
+    // 结束多边形顶点拖拽
+    if (isDraggingPolygonVertex) {
+      endDragPolygonVertex({});
+    }
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    // 面板拖动（原有）
+    if (isDragging) { /* 已在上面处理 */ }
+    // 矩形绘制预览
+    if (drawMode === 'rect' && isDrawing) {
+      moveRectDraw(e);
+    }
+    // 标注框拖拽
+    if (isDraggingBox) {
+      dragBox(e);
+    }
+    // 标注框缩放
+    if (isResizingBox) {
+      resizeBox(e);
+    }
+    // 多边形顶点拖拽
+    if (isDraggingPolygonVertex) {
+      dragPolygonVertex(e);
+    }
+  });
+
+  // ========== 图片上的鼠标事件（绘制模式） ==========
+  imageWrapper.addEventListener('mousedown', function(e) {
+    if (drawMode === 'rect') {
+      startRectDraw(e);
+    }
+  });
+
+  imageWrapper.addEventListener('click', function(e) {
+    if (drawMode === 'polygon') {
+      addPolygonPoint(e);
+    }
+  });
+
+  imageWrapper.addEventListener('dblclick', function(e) {
+    if (drawMode === 'polygon') {
+      doubleClickPolygon(e);
+    }
+  });
+
+  // 阻止图片上的右键菜单（避免干扰绘制）
+  imageWrapper.addEventListener('contextmenu', function(e) {
+    if (drawMode) {
+      e.preventDefault();
+    }
+  });
+
+  // ========== 处理初始化数据 ==========
+  function handleInitData(data) {
+    initData = data;
+    var value = data.value || data;
+
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value);
+      } catch(e) {
+        console.log('[Benchmark V3] 初始化数据解析失败:', e.message);
+      }
+    }
+
+    // 加载图片
+    if (value && value.image_url) {
+      loadImage(value.image_url);
+    }
+
+    var contents = [];
+    if (value && value.contents && Array.isArray(value.contents)) {
+      contents = value.contents;
+    } else if (Array.isArray(value)) {
+      contents = value;
+    }
+
+    if (contents.length > 0) {
+      boxesData = [];
+      contents.forEach(function(item, i) {
+        var normalizedItem = normalizeItem(item);
+        // 解析attribute字段
+        var attr = normalizedItem.attribute || {};
+        var box = {
+          index: normalizedItem.index !== undefined ? normalizedItem.index : i,
+          page: normalizedItem.page !== undefined ? normalizedItem.page : (attr.page !== undefined ? attr.page : 0),
+          type: normalizedItem.type || attr.type || 'paragraph',
+          location: normalizedItem.location || attr.location || 'main',
+          title_level: normalizedItem.title_level !== undefined ? normalizedItem.title_level : (attr.title_level !== undefined ? attr.title_level : -1),
+          attach_index: normalizedItem.attach_index !== undefined ? normalizedItem.attach_index : (attr.attach_index !== undefined ? attr.attach_index : -1),
+          coords: null,
+          description: normalizedItem.text || '',
+          text: normalizedItem.text || ''
+        };
+
+        if (normalizedItem.position && Array.isArray(normalizedItem.position)) {
+          var pos = normalizedItem.position;
+          if (pos.length === 4) {
+            box.coords = { x1: pos[0], y1: pos[1], x2: pos[2], y2: pos[3] };
+          } else if (pos.length >= 6 && pos.length % 2 === 0) {
+            var points = [];
+            for (var j = 0; j < pos.length; j += 2) {
+              points.push({ x: pos[j], y: pos[j+1] });
+            }
+            if (points.length === 4 && isAxisAlignedRect(points)) {
+              var xs = points.map(function(p) { return p.x; });
+              var ys = points.map(function(p) { return p.y; });
+              box.coords = {
+                x1: Math.min.apply(null, xs), y1: Math.min.apply(null, ys),
+                x2: Math.max.apply(null, xs), y2: Math.max.apply(null, ys)
+              };
+            } else {
+              box.coords = { points: points };
+              box.annotationType = 'POLYGON';
+            }
+          }
+        }
+
+        box._importData = normalizedItem;
+        boxesData.push(box);
+      });
+
+      fetchedTime = getLocalTimeString();
+      renderAnnotationUI();
+
+      if (contents.length > 0) {
+        var items = boxList.querySelectorAll('.agi-box-item');
+        contents.forEach(function(raw, i) {
+          if (i >= items.length) return;
+          var item = normalizeItem(raw);
+          var el = items[i];
+
+          if (item.index !== undefined) el.querySelector('.agi-field-index').value = item.index;
+          if (item.page !== undefined) el.querySelector('.agi-field-page').value = item.page;
+
+          var typeSelect = el.querySelector('.agi-field-type');
+          for (var k = 0; k < typeSelect.options.length; k++) {
+            if (typeSelect.options[k].value === item.type) {
+              typeSelect.selectedIndex = k;
+              break;
+            }
+          }
+
+          var locSelect = el.querySelector('.agi-field-location');
+          for (var k2 = 0; k2 < locSelect.options.length; k2++) {
+            if (locSelect.options[k2].value === item.location) {
+              locSelect.selectedIndex = k2;
+              break;
+            }
+          }
+
+          el.querySelector('.agi-field-title-level').value = item.title_level;
+          var attachInput = el.querySelector('.agi-field-attach-index');
+          if (Array.isArray(item.attach_index)) {
+            attachInput.value = item.attach_index.join(', ');
+          } else {
+            attachInput.value = item.attach_index !== undefined ? item.attach_index : -1;
+          }
+
+          if (item.text !== undefined) {
+            var ta = el.querySelector('.agi-field-text');
+            ta.value = item.text;
+            autoResizeTextarea(ta);
+            updateIssues(ta, el);
+          }
+        });
+      }
+
+      if (value && value.update_time) {
+        fetchedTime = value.update_time;
+      }
+
+      updateAttachHighlight();
+      // 应用关联组颜色
+      applyBoxGroupColors();
+      saveToCache();
+    }
+  }
+
+  // ========== 窗口大小变化时重新渲染标注框 ==========
+  var resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      if (imageEl && !imageEl.classList.contains('agi-hidden')) {
+        imageDisplayWidth = imageEl.width;
+        imageDisplayHeight = imageEl.height;
+        renderAnnotationBoxes();
+      }
+    }, 200);
+  });
+
+  // ========== 本地测试模式 ==========
+  function applyLocalData(imageUrlStr, jsonStr) {
+    var data = {};
+    if (jsonStr) {
+      try {
+        var parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed)) {
+          data.contents = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          var arrayKeys = ['contents', 'items', 'annotations', 'results', 'data'];
+          for (var ki = 0; ki < arrayKeys.length; ki++) {
+            if (Array.isArray(parsed[arrayKeys[ki]]) && parsed[arrayKeys[ki]].length > 0) {
+              data.contents = parsed[arrayKeys[ki]];
+              break;
+            }
+          }
+          if (parsed.version) data.version = parsed.version;
+          if (parsed.update_time) data.update_time = parsed.update_time;
+          if (parsed.image_url) data.image_url = parsed.image_url;
+        }
+      } catch(e) {
+        showStatus('❌ JSON解析失败: ' + e.message, 'error');
+        return;
+      }
+    }
+
+    if (imageUrlStr) data.image_url = imageUrlStr;
+
+    if (data.image_url) {
+      loadImage(data.image_url);
+    }
+
+    if (data.contents && data.contents.length > 0) {
+      handleInitData(data);
+    } else if (!data.image_url) {
+      showStatus('⚠️ 未找到有效的标注数据', 'error');
+    }
+  }
+
+  // 检查URL参数
+  function checkUrlParams() {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === '1') {
+      var demoData = generateDemoData();
+      setTimeout(function() {
+        applyLocalData(demoData.image_url, JSON.stringify(demoData));
+        showStatus('🎯 已加载示例数据', 'info');
+      }, 500);
+      return true;
+    }
+    return false;
+  }
+
+  // ========== 初始化 ==========
+  initPanelZoom();
+  restoreFromCache();
+  checkUrlParams();
+
+  // ========== 独立版初始化（无平台依赖） ==========
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.0（支持PDF）');
+
+})();
+</script>
+</body>
+</html></longcat_think>
