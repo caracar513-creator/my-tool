@@ -38,17 +38,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e0e0e0;
-  font-size: 12px;
-  color: #555;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: 13px;
+  color: #fff;
+  border-radius: 0 0 8px 8px;
 }
 .agi-pdf-pageinfo {
-  min-width: 50px;
+  min-width: 60px;
   text-align: center;
-  font-weight: 500;
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 .agi-pdf-zoom {
   display: flex;
@@ -73,8 +76,9 @@
   border: 2px solid rgba(102, 126, 234, 0.8);
   background: rgba(102, 126, 234, 0.1);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   box-sizing: border-box;
+  border-radius: 3px;
 }
 .agi-annotation-box:hover {
   border-color: rgba(102, 126, 234, 1);
@@ -2891,7 +2895,7 @@ function autoFixText(text, type) {
           '</div>' +
           '<div class="agi-box-field">' +
             '<label>attach_index:</label>' +
-            '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="-1" style="width:80px;">' +
+            '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" style="width:80px;">' +
           '</div>' +
         '</div>' +
         '<div class="agi-box-field agi-full-width">' +
@@ -3173,7 +3177,7 @@ function buildResult() {
     return null;
   }
   
-  var version = 'V1.0';
+  var version = 'v3.0';
   var updateTime = fetchedTime || getLocalTimeString();
   var contents = [];
   var boxItems = boxList.querySelectorAll('.agi-box-item');
@@ -3266,7 +3270,7 @@ function buildResult() {
         imageInfo: imageInfo,
         fetchedTime: fetchedTime,
         formData: formData,
-        version: 'V1.0',
+        version: 'v3.0',
         savedAt: getLocalTimeString()
       };
 
