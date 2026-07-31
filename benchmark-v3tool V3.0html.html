@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.0</title>
+  <title>Benchmark V3 标注工具 V3.2</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -150,7 +150,7 @@
   color: #fff;
   cursor: grab;
 }
-.agi-panel-title { font-weight: 600; font-size: 15px; }
+.agi-panel-title { font-weight: 600; font-size: 15px; letter-spacing: 0.3px; }
 .agi-panel-title small { font-weight: 400; opacity: 0.8; font-size: 12px; margin-left: 6px; }
 .agi-panel-actions { display: flex; gap: 6px; }
 .agi-panel-actions button {
@@ -173,14 +173,23 @@
 .agi-btn {
   padding: 6px 12px; border: none; border-radius: 6px;
   cursor: pointer; font-size: 13px; font-weight: 500;
-  transition: opacity 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
 }
-.agi-btn:hover { opacity: 0.85; }
+.agi-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.agi-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
 .agi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.agi-btn-primary { background: #667eea; color: #fff; }
-.agi-btn-success { background: #52c41a; color: #fff; }
-.agi-btn-warning { background: #faad14; color: #fff; }
-.agi-btn-secondary { background: #f0f0f0; color: #666; }
+.agi-btn-primary { background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%); color: #fff; }
+.agi-btn-success { background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%); color: #fff; }
+.agi-btn-warning { background: linear-gradient(135deg, #faad14 0%, #d48806 100%); color: #fff; }
+.agi-btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
 .agi-btn-sm { padding: 3px 8px; font-size: 12px; }
 /* 按钮扩展组合：主按钮 + 扩展选项融为一体 */
 .agi-btn-ext-wrapper {
@@ -244,8 +253,17 @@
 }
 .agi-field-row label { font-weight: 600; font-size: 13px; white-space: nowrap; }
 .agi-input-sm {
-  padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px;
-  font-size: 13px; width: 80px;
+  padding: 5px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 13px;
+  width: 80px;
+  transition: all 0.2s ease;
+}
+.agi-input-sm:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+  outline: none;
 }
 
 /* box 列表 */
@@ -253,17 +271,25 @@
 
 /* box 项 */
 .agi-box-item {
-  background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px;
-  padding: 10px 12px; transition: background 0.3s, border-left 0.3s;
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.25s ease;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .agi-box-item:hover {
-  background: #f0f0f0;
+  background: #fafafa;
+  border-color: #d9d9d9;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
 }
 .agi-box-item.agi-item-active {
   background: #e6f7ff;
   border-color: #1890ff;
-  box-shadow: 0 0 8px rgba(24, 144, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2), 0 2px 8px rgba(24, 144, 255, 0.15);
+  transform: translateY(0);
 }
 .agi-box-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -280,17 +306,28 @@
 .agi-box-row .agi-box-field { flex: 1; }
 .agi-box-field { display: flex; align-items: center; gap: 4px; }
 .agi-box-field label { font-size: 12px; color: #888; white-space: nowrap; min-width: auto; }
-.agi-box-field input[type="number"] {
-  width: 50px; padding: 3px 5px; border: 1px solid #d9d9d9;
-  border-radius: 4px; font-size: 13px;
+.agi-box-field input[type="number"],
+.agi-box-field input[type="text"],
+.agi-box-field select {
+  padding: 4px 6px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  background: #fff;
 }
-.agi-box-field input[type="text"] {
-  padding: 3px 5px; border: 1px solid #d9d9d9;
-  border-radius: 4px; font-size: 13px;
+.agi-box-field input[type="number"] {
+  width: 50px;
 }
 .agi-box-field select {
-  padding: 3px 5px; border: 1px solid #d9d9d9;
-  border-radius: 4px; font-size: 13px; max-width: 120px;
+  max-width: 120px;
+}
+.agi-box-field input[type="number"]:focus,
+.agi-box-field input[type="text"]:focus,
+.agi-box-field select:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+  outline: none;
 }
 .agi-full-width { width: 100%; flex-direction: column; align-items: flex-start; }
 .agi-full-width label { margin-bottom: 2px; }
@@ -298,11 +335,25 @@
 /* text 区域样式 */
 .agi-text-wrap { width: 100%; position: relative; }
 .agi-field-text {
-  width: 100%; min-height: 32px;
-  padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 4px;
-  font-size: 13px; font-family: "SFMono-Regular", Consolas, monospace;
-  resize: vertical; overflow-y: auto; box-sizing: border-box;
-  line-height: 1.5; word-break: break-all;
+  width: 100%; min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  resize: vertical;
+  overflow-y: auto;
+  box-sizing: border-box;
+  line-height: 1.6;
+  word-break: break-all;
+  transition: all 0.2s ease;
+  background: #fafafa;
+}
+.agi-field-text:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+  background: #fff;
+  outline: none;
 }
 .agi-text-actions {
   display: flex; align-items: center; gap: 4px; margin-top: 4px;
@@ -391,11 +442,26 @@
 }
 
 /* 滚动条美化 */
-.agi-panel-body::-webkit-scrollbar { width: 6px; }
-.agi-panel-body::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.15); border-radius: 3px;
+.agi-panel-body::-webkit-scrollbar,
+.agi-text-wrap textarea::-webkit-scrollbar,
+.agi-import-json::-webkit-scrollbar,
+.agi-result-json::-webkit-scrollbar { width: 6px; height: 6px; }
+.agi-panel-body::-webkit-scrollbar-thumb,
+.agi-text-wrap textarea::-webkit-scrollbar-thumb,
+.agi-import-json::-webkit-scrollbar-thumb,
+.agi-result-json::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.2); border-radius: 3px;
 }
-.agi-panel-body::-webkit-scrollbar-track { background: transparent; }
+.agi-panel-body::-webkit-scrollbar-thumb:hover,
+.agi-text-wrap textarea::-webkit-scrollbar-thumb:hover,
+.agi-import-json::-webkit-scrollbar-thumb:hover,
+.agi-result-json::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.35);
+}
+.agi-panel-body::-webkit-scrollbar-track,
+.agi-text-wrap textarea::-webkit-scrollbar-track,
+.agi-import-json::-webkit-scrollbar-track,
+.agi-result-json::-webkit-scrollbar-track { background: transparent; }
 
 /* 数据加载弹窗 */
 .agi-modal-overlay {
@@ -768,7 +834,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.0</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.2</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -776,10 +842,11 @@
   </div>
   <div class="agi-panel-body">
     <div class="agi-btn-group">
-<button id="agi-btn-load-data" class="agi-btn agi-btn-primary">📥 加载数据</button>
-<button id="agi-btn-export" class="agi-btn agi-btn-primary">📋 导出JSON</button>
-      <button id="agi-btn-save" class="agi-btn agi-btn-success">💾 下载JSON</button>
+      <button id="agi-btn-load-data" class="agi-btn agi-btn-primary">📥 加载数据</button>
+      <button id="agi-btn-load-local" class="agi-btn agi-btn-primary">📁 加载本地文件</button>
+      <button id="agi-btn-export" class="agi-btn agi-btn-success">📋 导出JSON</button>
       <button id="agi-btn-clear-cache" class="agi-btn agi-btn-secondary">🗑️ 清除缓存</button>
+      <input type="file" id="agi-file-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none;">
     </div>
     <!-- 绘制模式工具栏 -->
     <div class="agi-draw-toolbar" id="agi-draw-toolbar">
@@ -915,7 +982,6 @@
   var panel = document.getElementById('agi-panel');
   var btnMinimize = document.getElementById('agi-btn-minimize');
   var btnClose = document.getElementById('agi-btn-close');
-  var btnSave = document.getElementById('agi-btn-save');
   var btnExport = document.getElementById('agi-btn-export');
   var btnClearCache = document.getElementById('agi-btn-clear-cache');
   var statusEl = document.getElementById('agi-status');
@@ -929,6 +995,8 @@
   var btnZoomOut = document.getElementById('agi-btn-zoom-out');
   var zoomLevelEl = document.getElementById('agi-zoom-level');
   var btnLoadData = document.getElementById('agi-btn-load-data');
+  var btnLoadLocal = document.getElementById('agi-btn-load-local');
+  var fileInput = document.getElementById('agi-file-input');
   var modalOverlay = document.getElementById('agi-modal-overlay');
   var modalClose = document.getElementById('agi-modal-close');
   var inputImageUrl = document.getElementById('agi-input-image-url');
@@ -1067,10 +1135,14 @@
     imageLoading.style.display = 'block';
     imageLoading.textContent = '正在加载PDF...';
     
-    // 加载PDF文档
+    // 加载PDF文档 - 尝试多种方式解决跨域
     var loadingTask = pdfjsLib.getDocument({
       url: url,
-      withCredentials: false
+      withCredentials: true,
+      httpHeaders: {
+        'Accept': 'application/pdf'
+      },
+      isEvalSupported: false
     });
     
     loadingTask.promise.then(function(pdf) {
@@ -1090,6 +1162,42 @@
       imageLoading.innerHTML = '❌ PDF加载失败<br><span style="font-size:12px;">' + error.message + '</span>';
       console.log('[Benchmark V3] PDF加载失败:', error);
     });
+  }
+
+  // ========== 本地文件加载 ==========
+  function loadLocalFile(file) {
+    var fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.pdf')) {
+      loadLocalPDF(file);
+    } else {
+      loadLocalImage(file);
+    }
+  }
+
+  function loadLocalImage(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      loadImageFromURL(dataUrl);
+      showStatus('✅ 已加载本地图片: ' + file.name, 'success');
+    };
+    reader.onerror = function() {
+      showStatus('❌ 读取本地图片失败', 'error');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function loadLocalPDF(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      loadPDF(dataUrl);
+      showStatus('✅ 已加载本地PDF: ' + file.name, 'success');
+    };
+    reader.onerror = function() {
+      showStatus('❌ 读取本地PDF失败', 'error');
+    };
+    reader.readAsDataURL(file);
   }
 
   // ========== PDF翻页 ==========
@@ -2715,6 +2823,21 @@ function autoFixText(text, type) {
     return groupMap;
   }
 
+  // ========== is_truncated 显示/隐藏控制 ==========
+  function toggleIsTruncatedVisibility(attachInput) {
+    var boxItem = attachInput.closest('.agi-box-item');
+    if (!boxItem) return;
+    var isTruncatedLabel = boxItem.querySelector('.agi-is-truncated-label');
+    if (!isTruncatedLabel) return;
+    var raw = attachInput.value.trim();
+    var val = parseInt(raw);
+    if (raw === '-1' || raw === '' || isNaN(val) || val === -1) {
+      isTruncatedLabel.classList.add('agi-hidden');
+    } else {
+      isTruncatedLabel.classList.remove('agi-hidden');
+    }
+  }
+
   // ========== attach_index 关联显示 ==========
   function updateAttachHighlight() {
     var items = boxList.querySelectorAll('.agi-box-item');
@@ -2893,9 +3016,14 @@ function autoFixText(text, type) {
             '<label>title_level:</label>' +
             '<input type="number" class="agi-field-title-level" value="' + fieldTitleLevel + '" min="-1" max="5" step="1">' +
           '</div>' +
-          '<div class="agi-box-field">' +
+          '<div class="agi-box-field" style="flex-direction:column;align-items:flex-start;">' +
             '<label>attach_index:</label>' +
-            '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" style="width:80px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" style="width:60px;">' +
+              '<label class="agi-is-truncated-label agi-hidden" style="font-weight:normal;display:flex;align-items:center;gap:3px;">' +
+                '<input type="checkbox" class="agi-field-is-truncated"> is_truncated' +
+              '</label>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="agi-box-field agi-full-width">' +
@@ -3028,6 +3156,7 @@ function autoFixText(text, type) {
         if (el.classList.contains('agi-field-attach-index')) {
           updateAttachHighlight();
           applyBoxGroupColors();
+          toggleIsTruncatedVisibility(el);
         }
       });
       el.addEventListener('input', debounce(function() { 
@@ -3040,6 +3169,7 @@ function autoFixText(text, type) {
         if (el.classList.contains('agi-field-attach-index')) {
           updateAttachHighlight();
           applyBoxGroupColors();
+          toggleIsTruncatedVisibility(el);
         }
       }, 800));
       // 点击输入字段时自动选中内容（便于直接替换）
@@ -3086,6 +3216,11 @@ function autoFixText(text, type) {
     updateAttachHighlight();
     // 应用关联组颜色
     applyBoxGroupColors();
+    // 初始化 is_truncated 复选框可见性
+    var attachInputs = boxList.querySelectorAll('.agi-field-attach-index');
+    attachInputs.forEach(function(input) {
+      toggleIsTruncatedVisibility(input);
+    });
   }
 
 // ========== 清除字段错误高亮 ==========
@@ -3190,47 +3325,33 @@ function buildResult() {
     var attachArr = attachRaw === '-1' || attachRaw === '' ? [] : attachRaw.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); });
     var attachIndex = attachArr.length === 0 ? -1 : (attachArr.length === 1 ? attachArr[0] : attachArr);
 
+    // 读取 is_truncated 复选框状态
+    var isTruncated = null;
+    if (attachIndex !== -1) {
+      var isTruncatedCheckbox = item.querySelector('.agi-field-is-truncated');
+      isTruncated = isTruncatedCheckbox ? isTruncatedCheckbox.checked : false;
+    }
+
+    // 构建 attribute 对象
+    var attrObj = {
+      type: item.querySelector('.agi-field-type').value,
+      location: item.querySelector('.agi-field-location').value,
+      title_level: isNaN(titleLevel) ? -1 : titleLevel,
+      attach_index: attachIndex,
+      is_truncated: isTruncated
+    };
+
     contents.push({
       index: parseInt(item.querySelector('.agi-field-index').value) || 0,
       page: parseInt(item.querySelector('.agi-field-page').value) || 0,
       position: position || [],
-      attribute: {
-        type: item.querySelector('.agi-field-type').value,
-        location: item.querySelector('.agi-field-location').value,
-        title_level: isNaN(titleLevel) ? -1 : titleLevel,
-        attach_index: attachIndex
-      },
+      attribute: attrObj,
       text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t')
     });
   });
 
   return { update_time: updateTime, version: version, contents: contents };
 }
-
-  // ========== 下载JSON文件到本地 ==========
-  function saveDataToPlatform() {
-    var result = buildResult();
-    if (!result) return null;
-    var jsonStr = JSON.stringify(result, null, 2);
-    resultJson.value = jsonStr;
-    resultArea.classList.remove('agi-hidden');
-    emptyState.style.display = 'none';
-
-    // 创建并下载JSON文件
-    var blob = new Blob([jsonStr], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'benchmark-v3-annotation-' + getLocalTimeString().replace(/[:.]/g, '-') + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showStatus('✅ 已下载JSON文件到本地', 'success');
-    saveToCache();
-    return result;
-  }
 
   // ========== 导出JSON ==========
   function handleExport() {
@@ -3448,9 +3569,18 @@ function buildResult() {
     btnMinimize.title = isMinimized ? '最小化' : '展开';
   });
 
-  btnSave.addEventListener('click', saveDataToPlatform);
   btnExport.addEventListener('click', handleExport);
   btnClearCache.addEventListener('click', handleClearCache);
+
+  // 本地文件加载事件
+  btnLoadLocal.addEventListener('click', function() {
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    loadLocalFile(file);
+  });
 
   // 数据加载弹窗事件
   btnLoadData.addEventListener('click', function() {
@@ -3725,10 +3855,17 @@ function buildResult() {
 
           el.querySelector('.agi-field-title-level').value = item.title_level;
           var attachInput = el.querySelector('.agi-field-attach-index');
+          var importedAttachIndex = item.attach_index;
           if (Array.isArray(item.attach_index)) {
             attachInput.value = item.attach_index.join(', ');
           } else {
             attachInput.value = item.attach_index !== undefined ? item.attach_index : -1;
+          }
+
+          // 导入 is_truncated 字段（attach_index ≠ -1 时）
+          var isTruncatedCheckbox = el.querySelector('.agi-field-is-truncated');
+          if (isTruncatedCheckbox && importedAttachIndex !== -1 && importedAttachIndex !== undefined && importedAttachIndex !== null) {
+            isTruncatedCheckbox.checked = (item.is_truncated === true);
           }
 
           if (item.text !== undefined) {
@@ -3747,6 +3884,11 @@ function buildResult() {
       updateAttachHighlight();
       // 应用关联组颜色
       applyBoxGroupColors();
+      // 导入后更新 is_truncated 可见性
+      var allAttachInputs = boxList.querySelectorAll('.agi-field-attach-index');
+      allAttachInputs.forEach(function(input) {
+        toggleIsTruncatedVisibility(input);
+      });
       saveToCache();
     }
   }
@@ -3823,7 +3965,7 @@ function buildResult() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.0（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.2（支持PDF）');
 
 })();
 </script>
