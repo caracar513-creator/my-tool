@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.2</title>
+  <title>Benchmark V3 标注工具 V3.3</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -834,7 +834,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.2</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.3</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -3469,38 +3469,42 @@ function buildResult() {
     }
   }
 
-  function handleClearCache() {
-    if (!confirm('确定清除当前页面的缓存数据？此操作不可撤销。')) return;
-    safeStorageRemove(getCacheKey());
-    boxesData = [];
-    imageUrl = '';
-    imageInfo = null;
-    fetchedTime = '';
-    annotationArea.classList.add('agi-hidden');
-    resultArea.classList.add('agi-hidden');
-    boxList.innerHTML = '';
-    emptyState.style.display = '';
-    
-    // 清除图片和PDF
-    imageEl.src = '';
-    imageEl.classList.add('agi-hidden');
-    pdfCanvas.classList.add('agi-hidden');
-    pdfToolbar.classList.add('agi-hidden');
-    pdfDoc = null;
-    pdfCurrentPage = 1;
-    pdfTotalPages = 0;
-    currentContentType = 'none';
-    imageLoading.style.display = 'block';
-    imageLoading.textContent = '等待加载图片或PDF...';
-    
-    // 清除标注框
-    var oldBoxes = imageWrapper.querySelectorAll('.agi-annotation-box');
-    for (var i = 0; i < oldBoxes.length; i++) {
-      oldBoxes[i].parentNode.removeChild(oldBoxes[i]);
-    }
-    
-    showStatus('🗑️ 缓存已清除', 'success');
-  }
+function handleClearCache() {
+	if (!confirm('确定清除当前页面的缓存数据？此操作不可撤销。')) return;
+	safeStorageRemove(getCacheKey());
+	boxesData = [];
+	imageUrl = '';
+	imageInfo = null;
+	fetchedTime = '';
+	annotationArea.classList.add('agi-hidden');
+	resultArea.classList.add('agi-hidden');
+	boxList.innerHTML = '';
+	emptyState.style.display = '';
+
+	// 清除图片和PDF
+	imageEl.src = '';
+	imageEl.classList.add('agi-hidden');
+	pdfCanvas.classList.add('agi-hidden');
+	pdfToolbar.classList.add('agi-hidden');
+	pdfDoc = null;
+	pdfCurrentPage = 1;
+	pdfTotalPages = 0;
+	currentContentType = 'none';
+	imageLoading.style.display = 'block';
+	imageLoading.textContent = '等待加载图片或PDF...';
+
+	// 清除标注框
+	var oldBoxes = imageWrapper.querySelectorAll('.agi-annotation-box');
+	for (var i = 0; i < oldBoxes.length; i++) {
+		oldBoxes[i].parentNode.removeChild(oldBoxes[i]);
+	}
+
+	// 清除弹窗中的输入框（V3.3 修复）
+	if (inputImageUrl) inputImageUrl.value = '';
+	if (inputJson) inputJson.value = '';
+
+	showStatus('🗑️ 缓存已清除', 'success');
+}
 
   // ========== 标准化导入项 ==========
   function normalizeItem(raw) {
@@ -3965,7 +3969,7 @@ function buildResult() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.2（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.3（支持PDF）');
 
 })();
 </script>
