@@ -20,9 +20,8 @@
   min-height: 400px;
   background: #f5f5f5;
   overflow: auto;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  /* 使用 text-align 居中 inline-block 子元素 */
+  text-align: center;
 }
 .agi-image-wrapper {
   position: relative;
@@ -30,7 +29,6 @@
 }
 .agi-image {
   display: block;
-  max-width: 100%;
   user-select: none;
 }
 /* PDF 翻页工具栏 */
@@ -65,7 +63,6 @@
 }
 .agi-pdf-canvas {
   display: block;
-  max-width: 100%;
   user-select: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
@@ -957,6 +954,7 @@
   var pdfCurrentPage = 1;        // 当前PDF页码
   var pdfTotalPages = 0;         // PDF总页数
   var pdfScale = 1.5;            // PDF渲染缩放比例
+  var OCR_RENDER_DPI = 150;      // OCR识别时PDF渲染的DPI，用于计算OCR坐标系基准尺寸
   var currentContentType = 'none'; // 'none' | 'image' | 'pdf'
   var pdfCanvas = document.getElementById('agi-pdf-canvas');
   var pdfContext = pdfCanvas ? pdfCanvas.getContext('2d') : null;
@@ -1163,6 +1161,9 @@
       pdfToolbar.classList.remove('agi-hidden');
       pdfCanvas.classList.remove('agi-hidden');
       
+      // 确保隐藏加载提示（防止图片加载失败后提示残留）
+      imageLoading.style.display = 'none';
+      
       // 渲染第一页
       renderPDFPage(pdfCurrentPage);
       
@@ -1232,37 +1233,48 @@
   // ========== 渲染PDF页面 ==========
   function renderPDFPage(pageNum) {
     if (!pdfDoc || !pdfContext) return;
-    
+
     pdfDoc.getPage(pageNum).then(function(page) {
       var viewport = page.getViewport({ scale: pdfScale });
-      
+
+      // 获取PDF原始尺寸（points，scale=1）
+      var baseViewport = page.getViewport({ scale: 1 });
+      var pdfPointsWidth = baseViewport.width;
+      var pdfPointsHeight = baseViewport.height;
+
       // 设置canvas尺寸
       pdfCanvas.width = viewport.width;
       pdfCanvas.height = viewport.height;
       pdfCanvas.style.width = viewport.width + 'px';
       pdfCanvas.style.height = viewport.height + 'px';
-      
-      // 更新imageNaturalWidth/Height为当前PDF页面尺寸，用于坐标计算
-      imageNaturalWidth = viewport.width;
-      imageNaturalHeight = viewport.height;
+
+      // 关键修复：
+      // imageNaturalWidth = OCR坐标系的基准尺寸（OCR图片尺寸）
+      imageNaturalWidth = pdfPointsWidth * OCR_RENDER_DPI / 72;
+      imageNaturalHeight = pdfPointsHeight * OCR_RENDER_DPI / 72;
+
+      // imageDisplayWidth = canvas实际显示尺寸
       imageDisplayWidth = viewport.width;
       imageDisplayHeight = viewport.height;
-      
+
       // 渲染PDF页面到canvas
       var renderContext = {
         canvasContext: pdfContext,
         viewport: viewport
       };
-      
+
       page.render(renderContext).promise.then(function() {
         imageLoading.style.display = 'none';
         pdfCanvas.classList.remove('agi-hidden');
         pdfPageInfo.textContent = (pdfCurrentPage - 1) + ' / ' + (pdfTotalPages - 1);
-        
+
         // 页面渲染完成后重新渲染标注框
         if (boxesData.length > 0) {
           renderAnnotationBoxes();
         }
+      }).catch(function(error) {
+        console.error('[Benchmark V3] PDF页面渲染失败:', error);
+        imageLoading.innerHTML = '❌ PDF页面渲染失败<br><span style="font-size:12px;">' + error.message + '</span>';
       });
     });
   }
@@ -1508,10 +1520,23 @@
 
   // ========== 创建新标注框 ==========
   function createNewBox(coords) {
-    var newIndex = boxesData.length;
+    // 计算当前页的最大index
+    var currentPage = currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '';
+    var maxIndex = -1;
+    for (var i = 0; i < boxesData.length; i++) {
+      var boxPage = boxesData[i].page !== undefined ? parseInt(boxesData[i].page) : '';
+      if (boxPage === currentPage) {
+        var boxIndex = parseInt(boxesData[i].index);
+        if (!isNaN(boxIndex) && boxIndex > maxIndex) {
+          maxIndex = boxIndex;
+        }
+      }
+    }
+    var newIndex = maxIndex + 1;
+    
     var box = {
       index: newIndex,
-      page: currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '',
+      page: currentPage,
       type: '',
       location: '',
       title_level: '',
@@ -1542,10 +1567,23 @@
   }
 
   function createNewBoxPolygon(points) {
-    var newIndex = boxesData.length;
+    // 计算当前页的最大index
+    var currentPage = currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '';
+    var maxIndex = -1;
+    for (var i = 0; i < boxesData.length; i++) {
+      var boxPage = boxesData[i].page !== undefined ? parseInt(boxesData[i].page) : '';
+      if (boxPage === currentPage) {
+        var boxIndex = parseInt(boxesData[i].index);
+        if (!isNaN(boxIndex) && boxIndex > maxIndex) {
+          maxIndex = boxIndex;
+        }
+      }
+    }
+    var newIndex = maxIndex + 1;
+    
     var box = {
       index: newIndex,
-      page: currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '',
+      page: currentPage,
       type: '',
       location: '',
       title_level: '',
@@ -1660,7 +1698,7 @@
     showStatus('🗑️ 已清除所有标注框', 'success');
   }
 
-  // ========== index冲突处理（后续序号顺延） ==========
+  // ========== index冲突处理（同页面内后续序号顺延） ==========
   function handleIndexConflict(changedItem, newIndex) {
     var oldIndex = parseInt(changedItem._oldIndex);
     if (isNaN(oldIndex)) return;
@@ -1669,13 +1707,19 @@
       // 在boxesData中找到对应的框
       var changedArrayIdx = parseInt(changedItem.dataset.index);
       var changedBox = (!isNaN(changedArrayIdx) && boxesData[changedArrayIdx]) ? boxesData[changedArrayIdx] : null;
+      
+      // 获取被修改框的page
+      var changedPage = changedBox ? (changedBox.page !== undefined ? parseInt(changedBox.page) : '') : '';
+      if (isNaN(changedPage)) changedPage = '';
 
       if (newIndex > oldIndex) {
-        // 索引增大：将oldIndex+1到newIndex之间的框减1
+        // 索引增大：将同page中oldIndex+1到newIndex之间的框减1
         // 例如：原index从2改为5，原来3,4,5的框变成2,3,4
-        // 先收集需要修改的框，避免在循环中修改导致的连锁问题
         var toDecrease = boxesData.filter(function(box) {
-          return box !== changedBox && box.index > oldIndex && box.index <= newIndex;
+          if (box === changedBox) return false;
+          var boxPage = box.page !== undefined ? parseInt(box.page) : '';
+          if (isNaN(boxPage)) boxPage = '';
+          return boxPage === changedPage && box.index > oldIndex && box.index <= newIndex;
         });
         // 按index从小到大排序，这样修改时不会影响后续查找
         toDecrease.sort(function(a, b) { return a.index - b.index; });
@@ -1686,10 +1730,13 @@
           box.index = newIdx;
         });
       } else {
-        // 索引减小：将newIndex到oldIndex-1之间的框加1
+        // 索引减小：将同page中newIndex到oldIndex-1之间的框加1
         // 例如：原index从5改为2，原来2,3,4的框变成3,4,5
         var toIncrease = boxesData.filter(function(box) {
-          return box !== changedBox && box.index >= newIndex && box.index < oldIndex;
+          if (box === changedBox) return false;
+          var boxPage = box.page !== undefined ? parseInt(box.page) : '';
+          if (isNaN(boxPage)) boxPage = '';
+          return boxPage === changedPage && box.index >= newIndex && box.index < oldIndex;
         });
         // 按index从大到小排序，这样修改时不会影响后续查找
         toIncrease.sort(function(a, b) { return b.index - a.index; });
@@ -2531,32 +2578,26 @@ function autoFixText(text, type) {
       var left, top, width, height;
       var isPolygon = box.annotationType === 'POLYGON';
 
-      // PDF坐标系转换：原点在左下角，y轴向上 -> Canvas坐标系：原点在左上角，y轴向下
-      function pdfYToCanvas(y) {
-        return imageNaturalHeight - y;
-      }
-
       if (isPolygon && box.coords.points) {
-        // 多边形：使用points计算包围盒（需要坐标系转换）
+        // 多边形：使用points计算包围盒
         var points = box.coords.points;
         var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (var i = 0; i < points.length; i++) {
-          var canvasY = pdfYToCanvas(points[i].y);
           if (points[i].x < minX) minX = points[i].x;
-          if (canvasY < minY) minY = canvasY;
+          if (points[i].y < minY) minY = points[i].y;
           if (points[i].x > maxX) maxX = points[i].x;
-          if (canvasY > maxY) maxY = canvasY;
+          if (points[i].y > maxY) maxY = points[i].y;
         }
         left = minX * scaleX;
         top = minY * scaleY;
         width = (maxX - minX) * scaleX;
         height = (maxY - minY) * scaleY;
       } else if (box.coords.x1 !== undefined) {
-        // 矩形（需要坐标系转换）
+        // 矩形
         var x1 = box.coords.x1;
-        var y1 = pdfYToCanvas(box.coords.y1);
+        var y1 = box.coords.y1;
         var x2 = box.coords.x2;
-        var y2 = pdfYToCanvas(box.coords.y2);
+        var y2 = box.coords.y2;
         left = Math.min(x1, x2) * scaleX;
         top = Math.min(y1, y2) * scaleY;
         width = Math.abs(x2 - x1) * scaleX;
@@ -2582,7 +2623,7 @@ function autoFixText(text, type) {
         for (var pIdx = 0; pIdx < pts.length; pIdx++) {
           var pt = pts[pIdx];
           var dX = pt.x * scaleX;
-          var dY = pdfYToCanvas(pt.y) * scaleY;
+          var dY = pt.y * scaleY;
           // 顶点圆圈（可拖拽）
           var pointEl = document.createElement('div');
           pointEl.className = 'agi-annotation-polygon-point';
@@ -2603,7 +2644,7 @@ function autoFixText(text, type) {
           // 边线
           var nextPt = pts[(pIdx + 1) % pts.length];
           var nX = nextPt.x * scaleX;
-          var nY = pdfYToCanvas(nextPt.y) * scaleY;
+          var nY = nextPt.y * scaleY;
           var len = Math.sqrt(Math.pow(nX - dX, 2) + Math.pow(nY - dY, 2));
           var ang = Math.atan2(nY - dY, nX - dX) * 180 / Math.PI;
           var lineEl = document.createElement('div');
@@ -2981,15 +3022,20 @@ function autoFixText(text, type) {
     emptyState.style.display = 'none';
     boxList.innerHTML = '';
 
-    // 按index值排序（index小的在前）
+    // 按 page + index 排序（page 优先，然后 index）
     var sortedBoxes = boxesData.map(function(box, idx) { return { box: box, idx: idx }; });
     sortedBoxes.sort(function(a, b) {
+      var pageA = parseInt(a.box.page);
+      var pageB = parseInt(b.box.page);
       var idxA = parseInt(a.box.index);
       var idxB = parseInt(b.box.index);
-      // 空index排在最后
-      if (isNaN(idxA) && isNaN(idxB)) return 0;
-      if (isNaN(idxA)) return 1;
-      if (isNaN(idxB)) return -1;
+      // 处理 NaN 情况
+      if (isNaN(pageA)) pageA = 0;
+      if (isNaN(pageB)) pageB = 0;
+      if (isNaN(idxA)) idxA = 0;
+      if (isNaN(idxB)) idxB = 0;
+      // 先按 page 排序，page 相同再按 index 排序
+      if (pageA !== pageB) return pageA - pageB;
       return idxA - idxB;
     });
 
@@ -3668,8 +3714,11 @@ function handleClearCache() {
   // ========== 标准化导入项 ==========
   function normalizeItem(raw) {
     var item = {};
-    item.index = raw.index !== undefined ? parseInt(raw.index) : 0;
-    item.page = raw.page !== undefined ? parseInt(raw.page) : 0;
+    // 确保 page 和 index 是数字类型，NaN 时设为 0
+    var parsedIndex = raw.index !== undefined ? parseInt(raw.index) : 0;
+    var parsedPage = raw.page !== undefined ? parseInt(raw.page) : 0;
+    item.index = isNaN(parsedIndex) ? 0 : parsedIndex;
+    item.page = isNaN(parsedPage) ? 0 : parsedPage;
     item.position = raw.position;
     item.text = raw.text !== undefined ? raw.text : '';
     item.format_text = raw.format_text !== undefined ? raw.format_text : '';
@@ -3983,9 +4032,13 @@ function handleClearCache() {
     contents.forEach(function(item) {
       if (item && item.blocks && Array.isArray(item.blocks)) {
         // { page: X, blocks: [...] } 格式
-        var pageNum = item.page || 0;
+        var pageNum = parseInt(item.page);
+        if (isNaN(pageNum)) pageNum = 0;
         item.blocks.forEach(function(block, blockIdx) {
-          if (block.page === undefined) block.page = pageNum;
+          // 如果 block 没有 page 字段或为 null/空字符串，使用外层的 pageNum
+          if (block.page === undefined || block.page === null || block.page === '') {
+            block.page = pageNum;
+          }
           allBlocks.push(block);
         });
       } else {
@@ -3996,8 +4049,16 @@ function handleClearCache() {
 
     if (allBlocks.length > 0) {
       boxesData = [];
+      // V3.6: 检查重复的 page+index 组合
+      var pageIndexMap = {};
       allBlocks.forEach(function(item, i) {
         var normalizedItem = normalizeItem(item);
+        var key = normalizedItem.page + '_' + normalizedItem.index;
+        if (pageIndexMap[key] !== undefined) {
+          console.warn('发现重复的 page+index: page=' + normalizedItem.page + ', index=' + normalizedItem.index + '，跳过第 ' + i + ' 项');
+          return; // 跳过重复项
+        }
+        pageIndexMap[key] = i;
         // 解析attribute字段
         var attr = normalizedItem.attribute || {};
         // 解析 attach_info（V3.6 新格式）
