@@ -2523,33 +2523,40 @@ function autoFixText(text, type) {
       if (!box.coords) return;
 
       // PDF模式下，只渲染当前页的标注框（page 从 0 开始，pdfCurrentPage 从 1 开始）
-      if (currentContentType === 'pdf' && box.page !== undefined && box.page !== null && box.page !== '' && box.page !== (pdfCurrentPage - 1)) {
+      // 使用 parseInt 确保类型一致，避免字符串 vs 数字比较失败
+      if (currentContentType === 'pdf' && box.page !== undefined && box.page !== null && box.page !== '' && parseInt(box.page) !== (pdfCurrentPage - 1)) {
         return;
       }
 
       var left, top, width, height;
       var isPolygon = box.annotationType === 'POLYGON';
 
+      // PDF坐标系转换：原点在左下角，y轴向上 -> Canvas坐标系：原点在左上角，y轴向下
+      function pdfYToCanvas(y) {
+        return imageNaturalHeight - y;
+      }
+
       if (isPolygon && box.coords.points) {
-        // 多边形：使用points计算包围盒
+        // 多边形：使用points计算包围盒（需要坐标系转换）
         var points = box.coords.points;
         var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (var i = 0; i < points.length; i++) {
+          var canvasY = pdfYToCanvas(points[i].y);
           if (points[i].x < minX) minX = points[i].x;
-          if (points[i].y < minY) minY = points[i].y;
+          if (canvasY < minY) minY = canvasY;
           if (points[i].x > maxX) maxX = points[i].x;
-          if (points[i].y > maxY) maxY = points[i].y;
+          if (canvasY > maxY) maxY = canvasY;
         }
         left = minX * scaleX;
         top = minY * scaleY;
         width = (maxX - minX) * scaleX;
         height = (maxY - minY) * scaleY;
       } else if (box.coords.x1 !== undefined) {
-        // 矩形
+        // 矩形（需要坐标系转换）
         var x1 = box.coords.x1;
-        var y1 = box.coords.y1;
+        var y1 = pdfYToCanvas(box.coords.y1);
         var x2 = box.coords.x2;
-        var y2 = box.coords.y2;
+        var y2 = pdfYToCanvas(box.coords.y2);
         left = Math.min(x1, x2) * scaleX;
         top = Math.min(y1, y2) * scaleY;
         width = Math.abs(x2 - x1) * scaleX;
@@ -2575,7 +2582,7 @@ function autoFixText(text, type) {
         for (var pIdx = 0; pIdx < pts.length; pIdx++) {
           var pt = pts[pIdx];
           var dX = pt.x * scaleX;
-          var dY = pt.y * scaleY;
+          var dY = pdfYToCanvas(pt.y) * scaleY;
           // 顶点圆圈（可拖拽）
           var pointEl = document.createElement('div');
           pointEl.className = 'agi-annotation-polygon-point';
@@ -2596,7 +2603,7 @@ function autoFixText(text, type) {
           // 边线
           var nextPt = pts[(pIdx + 1) % pts.length];
           var nX = nextPt.x * scaleX;
-          var nY = nextPt.y * scaleY;
+          var nY = pdfYToCanvas(nextPt.y) * scaleY;
           var len = Math.sqrt(Math.pow(nX - dX, 2) + Math.pow(nY - dY, 2));
           var ang = Math.atan2(nY - dY, nX - dX) * 180 / Math.PI;
           var lineEl = document.createElement('div');
@@ -3393,10 +3400,10 @@ function buildResult() {
     showStatus('❌ 导出失败：存在空字段\n' + validation.errors.join('\n'), 'error');
     return null;
   }
-  
+
   var version = 'v3.0';
   var updateTime = fetchedTime || getLocalTimeString();
-  var contents = [];
+  var blocks = [];  // V3.6: 先收集所有 block
   var boxItems = boxList.querySelectorAll('.agi-box-item');
 
   boxItems.forEach(function(item, idx) {
@@ -3436,14 +3443,29 @@ function buildResult() {
     var formatTextEl = item.querySelector('.agi-field-format-text');
     var formatText = formatTextEl ? formatTextEl.value : '';
 
-    contents.push({
-      index: parseInt(item.querySelector('.agi-field-index').value) || 0,
+    blocks.push({
       page: parseInt(item.querySelector('.agi-field-page').value) || 0,
+      index: parseInt(item.querySelector('.agi-field-index').value) || 0,
       position: position || [],
       attribute: attrObj,
       text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t'),
       format_text: formatText
     });
+  });
+
+  // V3.6: 按页分组，生成 { page: X, blocks: [...] } 结构
+  var pageMap = {};
+  var pageOrder = [];
+  blocks.forEach(function(block) {
+    var pg = block.page;
+    if (!pageMap[pg]) {
+      pageMap[pg] = [];
+      pageOrder.push(pg);
+    }
+    pageMap[pg].push(block);
+  });
+  var contents = pageOrder.map(function(pg) {
+    return { page: pg, blocks: pageMap[pg] };
   });
 
   // V3.6: 使用导入的版本号，如果没有则默认 v3.0
@@ -3646,8 +3668,8 @@ function handleClearCache() {
   // ========== 标准化导入项 ==========
   function normalizeItem(raw) {
     var item = {};
-    item.index = raw.index;
-    item.page = raw.page !== undefined ? raw.page : 0;
+    item.index = raw.index !== undefined ? parseInt(raw.index) : 0;
+    item.page = raw.page !== undefined ? parseInt(raw.page) : 0;
     item.position = raw.position;
     item.text = raw.text !== undefined ? raw.text : '';
     item.format_text = raw.format_text !== undefined ? raw.format_text : '';
@@ -3953,12 +3975,28 @@ function handleClearCache() {
     } else if (value && value.contents && Array.isArray(value.contents)) {
       contents = value.contents;
     } else if (Array.isArray(value)) {
-      contents = value;
+      contents = [];
     }
 
-    if (contents.length > 0) {
+    // V3.6: 处理 contents 格式，支持 { page: X, blocks: [...] } 和扁平数组
+    var allBlocks = [];
+    contents.forEach(function(item) {
+      if (item && item.blocks && Array.isArray(item.blocks)) {
+        // { page: X, blocks: [...] } 格式
+        var pageNum = item.page || 0;
+        item.blocks.forEach(function(block, blockIdx) {
+          if (block.page === undefined) block.page = pageNum;
+          allBlocks.push(block);
+        });
+      } else {
+        // 扁平数组格式
+        allBlocks.push(item);
+      }
+    });
+
+    if (allBlocks.length > 0) {
       boxesData = [];
-      contents.forEach(function(item, i) {
+      allBlocks.forEach(function(item, i) {
         var normalizedItem = normalizeItem(item);
         // 解析attribute字段
         var attr = normalizedItem.attribute || {};
@@ -4015,9 +4053,9 @@ function handleClearCache() {
       fetchedTime = getLocalTimeString();
       renderAnnotationUI();
 
-      if (contents.length > 0) {
+      if (allBlocks.length > 0) {
         var items = boxList.querySelectorAll('.agi-box-item');
-        contents.forEach(function(raw, i) {
+        allBlocks.forEach(function(raw, i) {
           if (i >= items.length) return;
           var item = normalizeItem(raw);
           var el = items[i];
@@ -4100,6 +4138,13 @@ function handleClearCache() {
         toggleIsTruncatedVisibility(input);
       });
       saveToCache();
+
+      // V3.6: 自动从 agi_data_pdf_s3url 加载 PDF
+      var pdfUrl = value.agi_data_pdf_s3url || '';
+      if (pdfUrl && pdfUrl.trim() !== '') {
+        console.log('[Benchmark V3] 从 agi_data_pdf_s3url 自动加载 PDF:', pdfUrl);
+        loadPDF(pdfUrl);
+      }
     }
   }
 
