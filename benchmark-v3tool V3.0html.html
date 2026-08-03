@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.4</title>
+  <title>Benchmark V3 标注工具 V3.6</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -834,7 +834,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.4</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.6</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -901,7 +901,7 @@
       </div>
       <div class="agi-modal-field">
         <label>标注数据 JSON（可选）：</label>
-        <textarea id="agi-input-json" placeholder='粘贴JSON标注数据，如：{"contents": [{"index": 0, "page": 0, "position": [100, 50, 400, 50, 400, 150, 100, 150], "attribute": {"type": "title", "location": "main", "title_level": 1, "attach_index": -1}, "text": "示例标题"}]}'></textarea>
+        <textarea id="agi-input-json" placeholder='粘贴JSON标注数据，如：{"agi_data_pdf_s3url": "", "ocr_data_id": "", "meta_info": {}, "pdf_id": "", "data_batch": "", "annotation_ocr_result": {"update_time": "", "version": "V3.6", "contents": [{"page": 0, "blocks": [{"page": 0, "index": 0, "position": [100, 50, 400, 50, 400, 150, 100, 150], "attribute": {"type": "title", "location": "main", "title_level": 1, "attach_info": {"attach_index": null, "attach_page": null, "is_truncated": false}}, "text": "示例标题", "format_text": "示例标题"}]}]}}'></textarea>
       </div>
     </div>
     <div class="agi-modal-footer">
@@ -934,8 +934,17 @@
   var boxesData = [];
   var imageInfo = null;
   var fetchedTime = '';
+  var importedVersion = '';
+  var importedUpdateTime = '';
   var panelZoom = 1.0;
   var initData = null;
+  var importedTopFields = {
+    agi_data_pdf_s3url: '',
+    ocr_data_id: '',
+    meta_info: {},
+    pdf_id: '',
+    data_batch: ''
+  };
   var cacheStorage = {};
   var imageUrl = '';
   var imageNaturalWidth = 0;
@@ -1248,7 +1257,7 @@
       page.render(renderContext).promise.then(function() {
         imageLoading.style.display = 'none';
         pdfCanvas.classList.remove('agi-hidden');
-        pdfPageInfo.textContent = pdfCurrentPage + ' / ' + pdfTotalPages;
+        pdfPageInfo.textContent = (pdfCurrentPage - 1) + ' / ' + (pdfTotalPages - 1);
         
         // 页面渲染完成后重新渲染标注框
         if (boxesData.length > 0) {
@@ -1502,11 +1511,13 @@
     var newIndex = boxesData.length;
     var box = {
       index: newIndex,
-      page: currentContentType === 'pdf' ? pdfCurrentPage : '',
+      page: currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '',
       type: '',
       location: '',
       title_level: '',
-      attach_index: '',
+      attach_index: '-1',
+      attach_page: '',
+      is_truncated: false,
       coords: coords,
       description: '',
       text: '',
@@ -1534,11 +1545,13 @@
     var newIndex = boxesData.length;
     var box = {
       index: newIndex,
-      page: currentContentType === 'pdf' ? pdfCurrentPage : '',
+      page: currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '',
       type: '',
       location: '',
       title_level: '',
-      attach_index: '',
+      attach_index: '-1',
+      attach_page: '',
+      is_truncated: false,
       coords: { points: points },
       annotationType: 'POLYGON',
       description: '',
@@ -1567,11 +1580,12 @@
   function updateAttachIndexReferences(oldIndex, newIndex) {
     if (oldIndex === newIndex) return;
     boxesData.forEach(function(box) {
-      if (box.attach_index === oldIndex) {
-        box.attach_index = newIndex;
+      var ai = parseInt(box.attach_index);
+      if (ai === oldIndex) {
+        box.attach_index = String(newIndex);
       } else if (Array.isArray(box.attach_index)) {
-        box.attach_index = box.attach_index.map(function(ai) {
-          return ai === oldIndex ? newIndex : ai;
+        box.attach_index = box.attach_index.map(function(ai2) {
+          return parseInt(ai2) === oldIndex ? newIndex : parseInt(ai2);
         });
       }
     });
@@ -1611,11 +1625,12 @@
     });
     // 同时更新attach_index，如果attach_index等于被删除的index，需要清除
     boxesData.forEach(function(box) {
-      if (box.attach_index === deletedIndex) {
-        box.attach_index = -1;
+      var ai = parseInt(box.attach_index);
+      if (ai === deletedIndex) {
+        box.attach_index = '-1';
       } else if (Array.isArray(box.attach_index)) {
-        box.attach_index = box.attach_index.filter(function(ai) { return ai !== deletedIndex; });
-        if (box.attach_index.length === 0) box.attach_index = -1;
+        box.attach_index = box.attach_index.filter(function(ai2) { return parseInt(ai2) !== deletedIndex; });
+        if (box.attach_index.length === 0) box.attach_index = '-1';
       }
     });
   }
@@ -1717,6 +1732,11 @@
           } else {
             attachInput.value = ai;
           }
+        }
+        // 设置 attach_page（V3.6 新格式）
+        var attachPageInput = item.querySelector('.agi-field-attach-page');
+        if (attachPageInput && boxesData[arrayIdx].attach_page !== undefined) {
+          attachPageInput.value = boxesData[arrayIdx].attach_page !== null ? boxesData[arrayIdx].attach_page : '';
         }
       }
     });
@@ -2502,8 +2522,8 @@ function autoFixText(text, type) {
     boxesData.forEach(function(box, idx) {
       if (!box.coords) return;
 
-      // PDF模式下，只渲染当前页的标注框
-      if (currentContentType === 'pdf' && box.page && box.page !== pdfCurrentPage) {
+      // PDF模式下，只渲染当前页的标注框（page 从 0 开始，pdfCurrentPage 从 1 开始）
+      if (currentContentType === 'pdf' && box.page !== undefined && box.page !== null && box.page !== '' && box.page !== (pdfCurrentPage - 1)) {
         return;
       }
 
@@ -2828,12 +2848,16 @@ function autoFixText(text, type) {
     var boxItem = attachInput.closest('.agi-box-item');
     if (!boxItem) return;
     var isTruncatedLabel = boxItem.querySelector('.agi-is-truncated-label');
+    var attachPageInput = boxItem.querySelector('.agi-field-attach-page');
     if (!isTruncatedLabel) return;
     var raw = attachInput.value.trim();
     var val = parseInt(raw);
     if (raw === '-1' || raw === '' || isNaN(val) || val === -1) {
+      // attach_index = -1：自动填充 attach_page = -1，隐藏 is_truncated
       isTruncatedLabel.classList.add('agi-hidden');
+      if (attachPageInput) attachPageInput.value = '-1';
     } else {
+      // attach_index ≠ -1：显示 is_truncated 选框
       isTruncatedLabel.classList.remove('agi-hidden');
     }
   }
@@ -2844,11 +2868,15 @@ function autoFixText(text, type) {
     var info = collectAttachRelations();
     var relations = info.relations;
     var itemByIndex = info.itemByIndex;
+    console.log('[V3.6] updateAttachHighlight: items=' + items.length + ', relations=' + JSON.stringify(relations));
 
     items.forEach(function(item) {
       var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
       var badgeContainer = item.querySelector('.agi-attach-badge');
-      if (!badgeContainer) return;
+      if (!badgeContainer) {
+        console.log('[V3.6] badgeContainer not found for index=' + fieldIndex);
+        return;
+      }
       badgeContainer.innerHTML = '';
 
       var forward = relations[fieldIndex] ? relations[fieldIndex].filter(function(n) { return n !== fieldIndex; }) : [];
@@ -2860,13 +2888,17 @@ function autoFixText(text, type) {
         }
       });
 
+      console.log('[V3.6] index=' + fieldIndex + ', forward=' + JSON.stringify(forward) + ', backward=' + JSON.stringify(backward));
+
       forward.sort(function(a, b) { return a - b; }).forEach(function(n) {
         var badge = document.createElement('span');
         badge.className = 'agi-attach-badge-item';
         badge.textContent = '→' + n;
         badge.style.cursor = 'pointer';
-        badge.addEventListener('click', function() {
-          jumpAndFlash(n, info.itemByIndex);
+        badge.addEventListener('click', function(e) {
+          e.stopPropagation();
+          console.log('[V3.6] arrow clicked: ' + n);
+          jumpAndFlash(n, info.itemByIndex, info.arrayIdxByIndex);
         });
         badgeContainer.appendChild(badge);
       });
@@ -2876,8 +2908,10 @@ function autoFixText(text, type) {
         badge.style.background = '#9254de';
         badge.textContent = '←' + n;
         badge.style.cursor = 'pointer';
-        badge.addEventListener('click', function() {
-          jumpAndFlash(n, info.itemByIndex);
+        badge.addEventListener('click', function(e) {
+          e.stopPropagation();
+          console.log('[V3.6] arrow clicked: ' + n);
+          jumpAndFlash(n, info.itemByIndex, info.arrayIdxByIndex);
         });
         badgeContainer.appendChild(badge);
       });
@@ -2888,16 +2922,21 @@ function autoFixText(text, type) {
     var items = boxList.querySelectorAll('.agi-box-item');
     var relations = {};
     var itemByIndex = {};
+    var arrayIdxByIndex = {}; // fieldIndex -> arrayIdx 映射
     items.forEach(function(item) {
       var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
+      var arrayIdx = parseInt(item.dataset.index);
       itemByIndex[fieldIndex] = item;
+      if (!isNaN(arrayIdx)) {
+        arrayIdxByIndex[fieldIndex] = arrayIdx;
+      }
       var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
       var attachIndices = parseAttachValues(attachRaw);
       if (attachIndices.length > 0) {
         relations[fieldIndex] = attachIndices;
       }
     });
-    return { relations: relations, itemByIndex: itemByIndex };
+    return { relations: relations, itemByIndex: itemByIndex, arrayIdxByIndex: arrayIdxByIndex };
   }
 
   function parseAttachValues(str) {
@@ -2905,12 +2944,28 @@ function autoFixText(text, type) {
     return str.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n) && n !== -1; });
   }
 
-  function jumpAndFlash(targetIndex, itemByIndex) {
-    var target = itemByIndex[targetIndex];
-    if (!target) return;
+  function jumpAndFlash(targetIndex, itemByIndex, arrayIdxByIndex) {
+    // V3.6 修复：点击箭头只跳转到标注面板上对应的框（不跳转到图片标注框）
+    console.log('[V3.6] jumpAndFlash: targetIndex=' + targetIndex);
+    var target = null;
+    var items = boxList.querySelectorAll('.agi-box-item');
+    console.log('[V3.6] items count=' + items.length);
+    items.forEach(function(item) {
+      var idxVal = parseInt(item.querySelector('.agi-field-index').value);
+      console.log('[V3.6] checking idx=' + idxVal + ', match=' + (idxVal === targetIndex));
+      if (idxVal === targetIndex) {
+        target = item;
+      }
+    });
+    if (!target) {
+      console.log('[V3.6] target NOT FOUND');
+      return;
+    }
+    console.log('[V3.6] scrolling to target');
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     target.classList.add('agi-group-highlight');
     setTimeout(function() { target.classList.remove('agi-group-highlight'); }, 2000);
+    // 注意：点击箭头只跳转到面板，不跳转到图片标注框
   }
 
   // ========== 渲染标注UI ==========
@@ -2963,7 +3018,6 @@ function autoFixText(text, type) {
       var fieldType = box.type || '';
       var fieldLocation = box.location || '';
       var fieldTitleLevel = (box.title_level !== undefined && box.title_level !== null) ? box.title_level : '';
-      var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '';
       var fieldText = box.description || box.text || '';
 
       // 生成type选项，设置selected（空值时显示空选项）
@@ -3017,9 +3071,16 @@ function autoFixText(text, type) {
             '<input type="number" class="agi-field-title-level" value="' + fieldTitleLevel + '" min="-1" max="5" step="1">' +
           '</div>' +
           '<div class="agi-box-field" style="flex-direction:column;align-items:flex-start;">' +
-            '<label>attach_index:</label>' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<input type="number" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" min="-1" step="1" style="width:60px;">' +
+            '<label>attach_info:</label>' +
+            '<div style="display:flex;flex-direction:column;gap:6px;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:12px;">attach_index:</span>' +
+                '<input type="number" class="agi-field-attach-index" value="-1" placeholder="-1" min="-1" step="1" style="width:60px;">' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:12px;">attach_page:</span>' +
+                '<input type="number" class="agi-field-attach-page" value="-1" placeholder="-1" min="-1" step="1" style="width:60px;">' +
+              '</div>' +
               '<label class="agi-is-truncated-label agi-hidden" style="font-weight:normal;display:flex;align-items:center;gap:3px;">' +
                 '<input type="checkbox" class="agi-field-is-truncated"> is_truncated' +
               '</label>' +
@@ -3037,6 +3098,12 @@ function autoFixText(text, type) {
             '</div>' +
             '<div class="agi-text-issues agi-hidden"></div>' +
             '<div class="agi-text-render agi-hidden"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="agi-box-field agi-full-width">' +
+          '<label>format_text:</label>' +
+          '<div class="agi-text-wrap">' +
+            '<textarea class="agi-field-format-text" placeholder="（只读）原始格式文本" readonly style="background:#f5f5f5;color:#666;cursor:default;"></textarea>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -3140,6 +3207,8 @@ function autoFixText(text, type) {
           box.title_level = parseInt(el.value) || -1;
         } else if (el.classList.contains('agi-field-attach-index')) {
           box.attach_index = el.value;
+        } else if (el.classList.contains('agi-field-attach-page')) {
+          box.attach_page = el.value;
         } else if (el.classList.contains('agi-field-text')) {
           box.description = el.value;
           box.text = el.value;
@@ -3176,7 +3245,8 @@ function autoFixText(text, type) {
       if (el.classList.contains('agi-field-index') || 
           el.classList.contains('agi-field-page') || 
           el.classList.contains('agi-field-title-level') || 
-          el.classList.contains('agi-field-attach-index')) {
+          el.classList.contains('agi-field-attach-index') ||
+          el.classList.contains('agi-field-attach-page')) {
         el.addEventListener('click', function() {
           this.select();
         });
@@ -3283,17 +3353,24 @@ function validateRequiredFields() {
       errorMessages.push(itemLabel + ': title_level为空');
     }
     
-    // 验证 attach_index（必须为数字）
+    // 验证 attach_index（必须为数字，-1表示无关联）
     var attachIndexField = item.querySelector('.agi-field-attach-index');
     var attachIndexValue = attachIndexField.value.trim();
-    if (!attachIndexValue) {
-      attachIndexField.classList.add('agi-field-error');
-      if (!firstError) firstError = attachIndexField;
-      errorMessages.push(itemLabel + ': attach_index为空');
+    if (attachIndexValue === '' || attachIndexValue === '-1') {
+      // -1 表示无关联，attach_page 自动填充 -1，不需要验证
     } else if (isNaN(Number(attachIndexValue))) {
       attachIndexField.classList.add('agi-field-error');
       if (!firstError) firstError = attachIndexField;
       errorMessages.push(itemLabel + ': attach_index必须为数字');
+    } else {
+      // attach_index ≠ -1 时，验证 attach_page（不能为 -1）
+      var attachPageField = item.querySelector('.agi-field-attach-page');
+      var attachPageValue = attachPageField ? attachPageField.value.trim() : '';
+      if (attachPageValue === '' || attachPageValue === '-1' || isNaN(Number(attachPageValue))) {
+        if (attachPageField) attachPageField.classList.add('agi-field-error');
+        if (!firstError) firstError = attachPageField || attachIndexField;
+        errorMessages.push(itemLabel + ': attach_page必须为非-1的数字');
+      }
     }
     
     // text字段允许为空，不验证
@@ -3327,14 +3404,24 @@ function buildResult() {
     var position = coordsToPosition(box ? box.coords : null);
     var titleLevel = parseInt(item.querySelector('.agi-field-title-level').value);
     var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
-    var attachArr = attachRaw === '-1' || attachRaw === '' ? [] : attachRaw.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); });
-    var attachIndex = attachArr.length === 0 ? -1 : (attachArr.length === 1 ? attachArr[0] : attachArr);
+    var attachVal = parseInt(attachRaw);
+    var attachIndex = isNaN(attachVal) ? -1 : attachVal;
 
-    // 读取 is_truncated 复选框状态
-    var isTruncated = null;
-    if (attachIndex !== -1) {
+    // 构建 attach_info 对象（V3.6 新逻辑）
+    var attachInfo;
+    if (attachIndex === -1) {
+      // attach_index = -1：输出 -1, -1, null
+      attachInfo = { attach_index: -1, attach_page: -1, is_truncated: null };
+    } else {
+      // attach_index ≠ -1：需要填 attach_page 和 is_truncated
+      var attachPageRaw = item.querySelector('.agi-field-attach-page').value.trim();
+      var attachPage = parseInt(attachPageRaw);
       var isTruncatedCheckbox = item.querySelector('.agi-field-is-truncated');
-      isTruncated = isTruncatedCheckbox ? isTruncatedCheckbox.checked : false;
+      attachInfo = {
+        attach_index: attachIndex,
+        attach_page: isNaN(attachPage) || attachPage === -1 ? null : attachPage,
+        is_truncated: isTruncatedCheckbox ? isTruncatedCheckbox.checked : false
+      };
     }
 
     // 构建 attribute 对象
@@ -3342,20 +3429,38 @@ function buildResult() {
       type: item.querySelector('.agi-field-type').value,
       location: item.querySelector('.agi-field-location').value,
       title_level: isNaN(titleLevel) ? -1 : titleLevel,
-      attach_index: attachIndex,
-      is_truncated: isTruncated
+      attach_info: attachInfo
     };
+
+    // V3.6: 获取 format_text（只读字段，原样输出）
+    var formatTextEl = item.querySelector('.agi-field-format-text');
+    var formatText = formatTextEl ? formatTextEl.value : '';
 
     contents.push({
       index: parseInt(item.querySelector('.agi-field-index').value) || 0,
       page: parseInt(item.querySelector('.agi-field-page').value) || 0,
       position: position || [],
       attribute: attrObj,
-      text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t')
+      text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t'),
+      format_text: formatText
     });
   });
 
-  return { update_time: updateTime, version: version, contents: contents };
+  // V3.6: 使用导入的版本号，如果没有则默认 v3.0
+  var outputVersion = importedVersion || version;
+
+  return {
+    agi_data_pdf_s3url: importedTopFields.agi_data_pdf_s3url || '',
+    ocr_data_id: importedTopFields.ocr_data_id || '',
+    meta_info: importedTopFields.meta_info || {},
+    pdf_id: importedTopFields.pdf_id || '',
+    data_batch: importedTopFields.data_batch || '',
+    annotation_ocr_result: {
+      update_time: updateTime,
+      version: outputVersion,
+      contents: contents
+    }
+  };
 }
 
   // ========== 导出JSON ==========
@@ -3386,7 +3491,10 @@ function buildResult() {
           location: item.querySelector('.agi-field-location').value,
           titleLevel: item.querySelector('.agi-field-title-level').value,
           attachIndex: item.querySelector('.agi-field-attach-index').value,
-          text: item.querySelector('.agi-field-text').value
+          attachPage: item.querySelector('.agi-field-attach-page') ? item.querySelector('.agi-field-attach-page').value : '',
+          isTruncated: item.querySelector('.agi-field-is-truncated') ? item.querySelector('.agi-field-is-truncated').checked : false,
+          text: item.querySelector('.agi-field-text').value,
+          formatText: item.querySelector('.agi-field-format-text') ? item.querySelector('.agi-field-format-text').value : ''
         });
       });
 
@@ -3395,6 +3503,8 @@ function buildResult() {
         imageUrl: imageUrl,
         imageInfo: imageInfo,
         fetchedTime: fetchedTime,
+        importedVersion: importedVersion,
+        importedUpdateTime: importedUpdateTime,
         formData: formData,
         version: 'v3.0',
         savedAt: getLocalTimeString()
@@ -3413,6 +3523,8 @@ function buildResult() {
       imageUrl = cache.imageUrl || '';
       imageInfo = cache.imageInfo;
       fetchedTime = cache.fetchedTime;
+      importedVersion = cache.importedVersion || '';
+      importedUpdateTime = cache.importedUpdateTime || '';
 
       // 恢复图片
       if (imageUrl) {
@@ -3447,11 +3559,28 @@ function buildResult() {
 
           el.querySelector('.agi-field-title-level').value = fd.titleLevel;
           el.querySelector('.agi-field-attach-index').value = fd.attachIndex;
+          // 恢复 attach_page 和 is_truncated（V3.6 新格式）
+          var attachPageInput = el.querySelector('.agi-field-attach-page');
+          if (attachPageInput && fd.attachPage !== undefined) {
+            attachPageInput.value = fd.attachPage;
+          }
+          var isTruncatedCheckbox = el.querySelector('.agi-field-is-truncated');
+          if (isTruncatedCheckbox && fd.isTruncated !== undefined) {
+            isTruncatedCheckbox.checked = fd.isTruncated;
+          }
           if (fd.text !== undefined) {
             var ta = el.querySelector('.agi-field-text');
             ta.value = fd.text.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
             autoResizeTextarea(ta);
             updateIssues(ta, el);
+          }
+          // V3.6: 恢复 format_text（只读）
+          if (fd.formatText !== undefined) {
+            var ftTa = el.querySelector('.agi-field-format-text');
+            if (ftTa) {
+              ftTa.value = fd.formatText;
+              autoResizeTextarea(ftTa);
+            }
           }
         });
       }
@@ -3506,6 +3635,8 @@ function handleClearCache() {
 
 	// 清除弹窗中的输入框（V3.3 修复）
     // attach_index 输入框数字校验（V3.4 修复）
+    // 关联箭头点击跳转到图片标注框（V3.5 修复）
+    // attach_info 新格式支持（V3.6 修复）
 	if (inputImageUrl) inputImageUrl.value = '';
 	if (inputJson) inputJson.value = '';
 
@@ -3519,12 +3650,31 @@ function handleClearCache() {
     item.page = raw.page !== undefined ? raw.page : 0;
     item.position = raw.position;
     item.text = raw.text !== undefined ? raw.text : '';
+    item.format_text = raw.format_text !== undefined ? raw.format_text : '';
 
     var attr = raw.attribute || {};
     item.type = attr.type || raw.type || 'paragraph';
     item.location = attr.location || raw.location || 'main';
     item.title_level = attr.title_level !== undefined ? attr.title_level : (raw.title_level !== undefined ? raw.title_level : -1);
-    item.attach_index = attr.attach_index !== undefined ? attr.attach_index : (raw.attach_index !== undefined ? raw.attach_index : -1);
+
+    // 处理 attach_info（V3.6 新格式）
+    var attachInfo = attr.attach_info || {};
+    if (attachInfo.attach_index !== undefined) {
+      // 新格式：attach_info.attach_index
+      item.attach_index = attachInfo.attach_index;
+      // V3.6：attach_index = -1 时，attach_page 也设为 -1
+      if (attachInfo.attach_index === -1) {
+        item.attach_page = -1;
+      } else {
+        item.attach_page = attachInfo.attach_page !== undefined ? attachInfo.attach_page : null;
+      }
+      item.is_truncated = attachInfo.is_truncated !== undefined ? attachInfo.is_truncated : false;
+    } else {
+      // 旧格式兼容
+      item.attach_index = attr.attach_index !== undefined ? attr.attach_index : (raw.attach_index !== undefined ? raw.attach_index : -1);
+      item.attach_page = item.attach_index === -1 ? -1 : null;
+      item.is_truncated = false;
+    }
 
     if (raw.version) item.version = raw.version;
 
@@ -3777,13 +3927,30 @@ function handleClearCache() {
       }
     }
 
+    // 保存顶层字段（用于导出时原样保留）
+    importedTopFields = {
+      agi_data_pdf_s3url: value.agi_data_pdf_s3url || '',
+      ocr_data_id: value.ocr_data_id || '',
+      meta_info: value.meta_info || {},
+      pdf_id: value.pdf_id || '',
+      data_batch: value.data_batch || ''
+    };
+
+    // V3.6: 读取 annotation_ocr_result 包装对象
+    var ocrResult = value.annotation_ocr_result || {};
+    importedVersion = ocrResult.version || '';
+    importedUpdateTime = ocrResult.update_time || '';
+
     // 加载图片
     if (value && value.image_url) {
       loadImage(value.image_url);
     }
 
     var contents = [];
-    if (value && value.contents && Array.isArray(value.contents)) {
+    // V3.6: 优先从 annotation_ocr_result.contents 读取
+    if (value && ocrResult.contents && Array.isArray(ocrResult.contents)) {
+      contents = ocrResult.contents;
+    } else if (value && value.contents && Array.isArray(value.contents)) {
       contents = value.contents;
     } else if (Array.isArray(value)) {
       contents = value;
@@ -3795,13 +3962,24 @@ function handleClearCache() {
         var normalizedItem = normalizeItem(item);
         // 解析attribute字段
         var attr = normalizedItem.attribute || {};
+        // 解析 attach_info（V3.6 新格式）
+        var attachInfo = attr.attach_info || {};
+        var importedAttachIndex = attachInfo.attach_index !== undefined ? attachInfo.attach_index : null;
+        // 如果 attach_index 是 null，则设为 -1（表示无关联）
+        if (importedAttachIndex === null || importedAttachIndex === undefined) {
+          importedAttachIndex = -1;
+        }
+        // V3.6：attach_index = -1 时，attach_page 也设为 -1
+        var initAttachPage = importedAttachIndex === -1 ? -1 : (attachInfo.attach_page !== undefined ? attachInfo.attach_page : null);
         var box = {
           index: normalizedItem.index !== undefined ? normalizedItem.index : i,
           page: normalizedItem.page !== undefined ? normalizedItem.page : (attr.page !== undefined ? attr.page : 0),
           type: normalizedItem.type || attr.type || 'paragraph',
           location: normalizedItem.location || attr.location || 'main',
           title_level: normalizedItem.title_level !== undefined ? normalizedItem.title_level : (attr.title_level !== undefined ? attr.title_level : -1),
-          attach_index: normalizedItem.attach_index !== undefined ? normalizedItem.attach_index : (attr.attach_index !== undefined ? attr.attach_index : -1),
+          attach_index: importedAttachIndex,
+          attach_page: initAttachPage,
+          is_truncated: attachInfo.is_truncated !== undefined ? attachInfo.is_truncated : false,
           coords: null,
           description: normalizedItem.text || '',
           text: normalizedItem.text || ''
@@ -3869,7 +4047,17 @@ function handleClearCache() {
           if (Array.isArray(item.attach_index)) {
             attachInput.value = item.attach_index.join(', ');
           } else {
-            attachInput.value = item.attach_index !== undefined ? item.attach_index : -1;
+            attachInput.value = item.attach_index !== undefined && item.attach_index !== null ? item.attach_index : -1;
+          }
+
+          // 导入 attach_page（V3.6 新格式：attach_index=-1 时自动填充 -1）
+          var attachPageInput = el.querySelector('.agi-field-attach-page');
+          if (attachPageInput) {
+            if (importedAttachIndex === -1) {
+              attachPageInput.value = '-1';
+            } else {
+              attachPageInput.value = item.attach_page !== undefined && item.attach_page !== null ? item.attach_page : '-1';
+            }
           }
 
           // 导入 is_truncated 字段（attach_index ≠ -1 时）
@@ -3884,10 +4072,22 @@ function handleClearCache() {
             autoResizeTextarea(ta);
             updateIssues(ta, el);
           }
+
+          // V3.6: 导入 format_text（只读显示）
+          if (item.format_text !== undefined) {
+            var ftTa = el.querySelector('.agi-field-format-text');
+            if (ftTa) {
+              ftTa.value = item.format_text;
+              autoResizeTextarea(ftTa);
+            }
+          }
         });
       }
 
-      if (value && value.update_time) {
+      // V3.6: 优先使用 annotation_ocr_result.update_time
+      if (importedUpdateTime) {
+        fetchedTime = importedUpdateTime;
+      } else if (value && value.update_time) {
         fetchedTime = value.update_time;
       }
 
@@ -3925,16 +4125,34 @@ function handleClearCache() {
         if (Array.isArray(parsed)) {
           data.contents = parsed;
         } else if (parsed && typeof parsed === 'object') {
-          var arrayKeys = ['contents', 'items', 'annotations', 'results', 'data'];
-          for (var ki = 0; ki < arrayKeys.length; ki++) {
-            if (Array.isArray(parsed[arrayKeys[ki]]) && parsed[arrayKeys[ki]].length > 0) {
-              data.contents = parsed[arrayKeys[ki]];
-              break;
+          // V3.6: 优先从 annotation_ocr_result 读取
+          var ocrResult = parsed.annotation_ocr_result || {};
+          var contentsFound = false;
+          if (Array.isArray(ocrResult.contents) && ocrResult.contents.length > 0) {
+            data.contents = ocrResult.contents;
+            contentsFound = true;
+          } else {
+            var arrayKeys = ['contents', 'items', 'annotations', 'results', 'data'];
+            for (var ki = 0; ki < arrayKeys.length; ki++) {
+              if (Array.isArray(parsed[arrayKeys[ki]]) && parsed[arrayKeys[ki]].length > 0) {
+                data.contents = parsed[arrayKeys[ki]];
+                contentsFound = true;
+                break;
+              }
             }
           }
-          if (parsed.version) data.version = parsed.version;
-          if (parsed.update_time) data.update_time = parsed.update_time;
+          // V3.6: 从 annotation_ocr_result 读取 version/update_time
+          if (ocrResult.version) data.version = ocrResult.version;
+          else if (parsed.version) data.version = parsed.version;
+          if (ocrResult.update_time) data.update_time = ocrResult.update_time;
+          else if (parsed.update_time) data.update_time = parsed.update_time;
           if (parsed.image_url) data.image_url = parsed.image_url;
+          // 保存顶层字段（V3.6 新格式）
+          if (parsed.agi_data_pdf_s3url !== undefined) data.agi_data_pdf_s3url = parsed.agi_data_pdf_s3url;
+          if (parsed.ocr_data_id !== undefined) data.ocr_data_id = parsed.ocr_data_id;
+          if (parsed.meta_info !== undefined) data.meta_info = parsed.meta_info;
+          if (parsed.pdf_id !== undefined) data.pdf_id = parsed.pdf_id;
+          if (parsed.data_batch !== undefined) data.data_batch = parsed.data_batch;
         }
       } catch(e) {
         showStatus('❌ JSON解析失败: ' + e.message, 'error');
@@ -3975,7 +4193,7 @@ function handleClearCache() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.4（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.6（支持PDF）');
 
 })();
 </script>
