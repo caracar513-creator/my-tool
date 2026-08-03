@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.3</title>
+  <title>Benchmark V3 标注工具 V3.4</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -834,7 +834,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.3</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.4</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -3019,7 +3019,7 @@ function autoFixText(text, type) {
           '<div class="agi-box-field" style="flex-direction:column;align-items:flex-start;">' +
             '<label>attach_index:</label>' +
             '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<input type="text" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" style="width:60px;">' +
+              '<input type="number" class="agi-field-attach-index" value="' + fieldAttachIndex + '" placeholder="" min="-1" step="1" style="width:60px;">' +
               '<label class="agi-is-truncated-label agi-hidden" style="font-weight:normal;display:flex;align-items:center;gap:3px;">' +
                 '<input type="checkbox" class="agi-field-is-truncated"> is_truncated' +
               '</label>' +
@@ -3283,12 +3283,17 @@ function validateRequiredFields() {
       errorMessages.push(itemLabel + ': title_level为空');
     }
     
-    // 验证 attach_index
+    // 验证 attach_index（必须为数字）
     var attachIndexField = item.querySelector('.agi-field-attach-index');
-    if (!attachIndexField.value.trim()) {
+    var attachIndexValue = attachIndexField.value.trim();
+    if (!attachIndexValue) {
       attachIndexField.classList.add('agi-field-error');
       if (!firstError) firstError = attachIndexField;
       errorMessages.push(itemLabel + ': attach_index为空');
+    } else if (isNaN(Number(attachIndexValue))) {
+      attachIndexField.classList.add('agi-field-error');
+      if (!firstError) firstError = attachIndexField;
+      errorMessages.push(itemLabel + ': attach_index必须为数字');
     }
     
     // text字段允许为空，不验证
@@ -3500,6 +3505,7 @@ function handleClearCache() {
 	}
 
 	// 清除弹窗中的输入框（V3.3 修复）
+    // attach_index 输入框数字校验（V3.4 修复）
 	if (inputImageUrl) inputImageUrl.value = '';
 	if (inputJson) inputJson.value = '';
 
@@ -3969,7 +3975,7 @@ function handleClearCache() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.3（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.4（支持PDF）');
 
 })();
 </script>
