@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.8</title>
+  <title>Benchmark V3 标注工具 V3.9</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -979,7 +979,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.8</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.9</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -2879,14 +2879,14 @@ function autoFixText(text, type) {
 
   // ========== 应用关联组颜色到标注框 ==========
   function applyBoxGroupColors() {
-    var groupMap = computeAttachGroups(); // V3.8: groupMap 的 key 为 arrayIdx
+    var groupMap = computeAttachGroups(); // V3.9: groupMap 的 key 为 arrayIdx
     var boxEls = imageWrapper.querySelectorAll('.agi-annotation-box');
     var items = boxList.querySelectorAll('.agi-box-item');
 
     // 应用到图片上的标注框 - 使用边框高亮，透明背景（不遮盖文字）
     boxEls.forEach(function(boxEl) {
       var arrayIdx = parseInt(boxEl.dataset.index);
-      // V3.8: 直接使用 arrayIdx 查找颜色
+      // V3.9: 直接使用 arrayIdx 查找颜色
       var color = groupMap[arrayIdx];
       if (color) {
         // 边框同色高亮，背景透明
@@ -2911,7 +2911,7 @@ function autoFixText(text, type) {
     // 应用到面板中的box item（背景和左边框）
     items.forEach(function(item) {
       var arrayIdx = parseInt(item.dataset.index);
-      // V3.8: 直接使用 arrayIdx 查找颜色
+      // V3.9: 直接使用 arrayIdx 查找颜色
       var color = groupMap[arrayIdx];
       if (color) {
         item.style.background = color + '20'; // 20% 透明度
@@ -2991,9 +2991,9 @@ function autoFixText(text, type) {
   }
 
   // ========== 计算关联组 ==========
-  // V3.8: 基于全局 boxesData，使用 attach_page + attach_index 匹配目标block
+  // V3.9: 基于全局 boxesData，使用 attach_page + attach_index 匹配目标block
   function computeAttachGroups() {
-    // V3.8: 建立全局 page_index -> arrayIdx 映射
+    // V3.9: 建立全局 page_index -> arrayIdx 映射
     var pageIndexToArrayIdx = {};
     for (var i = 0; i < boxesData.length; i++) {
       var box = boxesData[i];
@@ -3004,7 +3004,7 @@ function autoFixText(text, type) {
       pageIndexToArrayIdx[bPage + '_' + bIndex] = i;
     }
 
-    // V3.8: 并查集，key 为 arrayIdx
+    // V3.9: 并查集，key 为 arrayIdx
     var parent = {};
     function find(x) {
       if (parent[x] === undefined) parent[x] = x;
@@ -3016,14 +3016,14 @@ function autoFixText(text, type) {
       if (ra !== rb) parent[ra] = rb;
     }
 
-    // V3.8: 遍历所有 boxesData，根据 attach_page + attach_index 建立关联
+    // V3.9: 遍历所有 boxesData，根据 attach_page + attach_index 建立关联
     for (var i = 0; i < boxesData.length; i++) {
       var box = boxesData[i];
-      // V3.8: boxesData 中 attach_index 和 attach_page 直接存储在 box 对象上
+      // V3.9: boxesData 中 attach_index 和 attach_page 直接存储在 box 对象上
       var attachIndex = box.attach_index;
       var attachPage = box.attach_page;
 
-      // V3.8: 跳过无效的 attach 信息
+      // V3.9: 跳过无效的 attach 信息
       if (attachIndex === null || attachIndex === undefined || attachIndex === -1 || attachIndex === '-1') continue;
       if (attachPage === null || attachPage === undefined || attachPage === -1 || attachPage === '-1' || attachPage === '') continue;
 
@@ -3042,7 +3042,7 @@ function autoFixText(text, type) {
       }
     }
 
-    // V3.8: 按组收集成员
+    // V3.9: 按组收集成员
     var groups = {};
     for (var i = 0; i < boxesData.length; i++) {
       if (parent[i] === undefined) continue;
@@ -3051,7 +3051,7 @@ function autoFixText(text, type) {
       groups[root].push(i);
     }
 
-    // V3.8: 分配颜色，返回 arrayIdx -> color 映射
+    // V3.9: 分配颜色，返回 arrayIdx -> color 映射
     var groupMap = {}; // arrayIdx -> color
     var colorIdx = 0;
     Object.keys(groups).forEach(function(root) {
@@ -3069,7 +3069,7 @@ function autoFixText(text, type) {
   }
 
   // ========== is_truncated 显示/隐藏控制 ==========
-  // V3.8: 根据 attach_index 和 attach_page 的值控制 is_truncated 显示
+  // V3.9: 根据 attach_index 和 attach_page 的值控制 is_truncated 显示
   function toggleIsTruncatedVisibility(attachInput) {
     var boxItem = attachInput.closest('.agi-box-item');
     if (!boxItem) return;
@@ -3098,25 +3098,25 @@ function autoFixText(text, type) {
   }
 
   // ========== attach_index 关联显示 ==========
-  // V3.8: 支持跨页关联显示和跳转
+  // V3.9: 支持跨页关联显示和跳转
   function updateAttachHighlight() {
     var items = boxList.querySelectorAll('.agi-box-item');
     var info = collectAttachRelations();
     var relations = info.relations;
     var itemByIndex = info.itemByIndex;
-    console.log('[V3.8] updateAttachHighlight: items=' + items.length + ', relations=' + JSON.stringify(relations));
+    console.log('[V3.9] updateAttachHighlight: items=' + items.length + ', relations=' + JSON.stringify(relations));
 
     items.forEach(function(item) {
       var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
       var arrayIdx = parseInt(item.dataset.index);
       var badgeContainer = item.querySelector('.agi-attach-badge');
       if (!badgeContainer) {
-        console.log('[V3.8] badgeContainer not found for arrayIdx=' + arrayIdx);
+        console.log('[V3.9] badgeContainer not found for arrayIdx=' + arrayIdx);
         return;
       }
       badgeContainer.innerHTML = '';
 
-      // V3.8: 获取当前 block 的 forward 关联（包含 attach_page 信息）
+      // V3.9: 获取当前 block 的 forward 关联（包含 attach_page 信息）
       var forward = [];
       if (relations[arrayIdx]) {
         forward = relations[arrayIdx].filter(function(r) {
@@ -3124,7 +3124,7 @@ function autoFixText(text, type) {
         });
       }
 
-      // V3.8: 计算 backward 关联（哪些 block 关联了当前 block）
+      // V3.9: 计算 backward 关联（哪些 block 关联了当前 block）
       var backward = [];
       Object.keys(relations).forEach(function(fromArrayIdx) {
         var fromIdx = parseInt(fromArrayIdx);
@@ -3138,40 +3138,40 @@ function autoFixText(text, type) {
         }
       });
 
-      console.log('[V3.8] arrayIdx=' + arrayIdx + ', forward=' + JSON.stringify(forward) + ', backward=' + JSON.stringify(backward));
+      console.log('[V3.9] arrayIdx=' + arrayIdx + ', forward=' + JSON.stringify(forward) + ', backward=' + JSON.stringify(backward));
 
-      // V3.8: 渲染 forward 徽章（→）
+      // V3.9: 渲染 forward 徽章（→）
       forward.forEach(function(r) {
         var badge = document.createElement('span');
         badge.className = 'agi-attach-badge-item';
-        // V3.8: 显示 page:index 格式
+        // V3.9: 显示 page:index 格式
         badge.textContent = '→' + r.page + ':' + r.index;
         badge.style.cursor = 'pointer';
-        // V3.8: 存储目标信息
+        // V3.9: 存储目标信息
         badge.dataset.targetPage = r.page;
         badge.dataset.targetIndex = r.index;
         badge.addEventListener('click', function(e) {
           e.stopPropagation();
-          console.log('[V3.8] forward arrow clicked: page=' + r.page + ', index=' + r.index);
+          console.log('[V3.9] forward arrow clicked: page=' + r.page + ', index=' + r.index);
           jumpAndFlashByPageAndIndex(r.page, r.index);
         });
         badgeContainer.appendChild(badge);
       });
 
-      // V3.8: 渲染 backward 徽章（←）
+      // V3.9: 渲染 backward 徽章（←）
       backward.forEach(function(b) {
         var badge = document.createElement('span');
         badge.className = 'agi-attach-badge-item';
         badge.style.background = '#9254de';
-        // V3.8: 显示 page:index 格式
+        // V3.9: 显示 page:index 格式
         badge.textContent = '←' + b.page + ':' + b.index;
         badge.style.cursor = 'pointer';
-        // V3.8: 存储目标信息
+        // V3.9: 存储目标信息
         badge.dataset.targetPage = b.page;
         badge.dataset.targetIndex = b.index;
         badge.addEventListener('click', function(e) {
           e.stopPropagation();
-          console.log('[V3.8] backward arrow clicked: page=' + b.page + ', index=' + b.index);
+          console.log('[V3.9] backward arrow clicked: page=' + b.page + ', index=' + b.index);
           jumpAndFlashByPageAndIndex(b.page, b.index);
         });
         badgeContainer.appendChild(badge);
@@ -3179,11 +3179,11 @@ function autoFixText(text, type) {
     });
   }
 
-  // V3.8: 收集关联关系，返回 arrayIdx -> [{page, index}] 格式
+  // V3.9: 收集关联关系，返回 arrayIdx -> [{page, index}] 格式
   function collectAttachRelations() {
     var items = boxList.querySelectorAll('.agi-box-item');
-    var relations = {}; // arrayIdx -> [{page, index}] (V3.8: 包含目标 page 信息)
-    var itemByIndex = {}; // arrayIdx -> DOM item (V3.8: 使用 arrayIdx 作为 key)
+    var relations = {}; // arrayIdx -> [{page, index}] (V3.9: 包含目标 page 信息)
+    var itemByIndex = {}; // arrayIdx -> DOM item (V3.9: 使用 arrayIdx 作为 key)
     var arrayIdxByIndex = {}; // arrayIdx -> arrayIdx (用于兼容)
     items.forEach(function(item) {
       var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
@@ -3192,15 +3192,15 @@ function autoFixText(text, type) {
       if (!isNaN(arrayIdx)) {
         arrayIdxByIndex[arrayIdx] = arrayIdx;
       }
-      // V3.8: 读取 attach_index 和 attach_page
+      // V3.9: 读取 attach_index 和 attach_page
       var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
       var attachPageRaw = item.querySelector('.agi-field-attach-page').value.trim();
       var attachIndices = parseAttachValues(attachRaw);
       var attachPages = parseAttachValues(attachPageRaw);
-      // V3.8: 只有当 attach_index 和 attach_page 都有效时才建立关联
+      // V3.9: 只有当 attach_index 和 attach_page 都有效时才建立关联
       if (attachIndices.length > 0 && attachPages.length > 0) {
         relations[arrayIdx] = attachIndices.map(function(idx, i) {
-          // V3.8: 按位置匹配 attach_page，如果数量不匹配则使用最后一个有效的 page
+          // V3.9: 按位置匹配 attach_page，如果数量不匹配则使用最后一个有效的 page
           var page = (i < attachPages.length) ? attachPages[i] : attachPages[attachPages.length - 1];
           return { page: page, index: idx };
         });
@@ -3214,10 +3214,10 @@ function autoFixText(text, type) {
     return str.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n) && n !== -1; });
   }
 
-  // V3.8: 根据 page 和 index 切换页面并跳转到目标标注框
+  // V3.9: 根据 page 和 index 切换页面并跳转到目标标注框
   function jumpAndFlashByPageAndIndex(targetPage, targetIndex) {
-    console.log('[V3.8] jumpAndFlashByPageAndIndex: targetPage=' + targetPage + ', targetIndex=' + targetIndex);
-    // V3.8: 如果目标在不同页，先切换页面
+    console.log('[V3.9] jumpAndFlashByPageAndIndex: targetPage=' + targetPage + ', targetIndex=' + targetIndex);
+    // V3.9: 如果目标在不同页，先切换页面
     if (targetPage !== panelCurrentPage) {
       panelCurrentPage = targetPage;
       renderAnnotationUI();
@@ -3230,9 +3230,9 @@ function autoFixText(text, type) {
     }
   }
 
-  // V3.8: 在当前页面内跳转到指定 index 的标注框
+  // V3.9: 在当前页面内跳转到指定 index 的标注框
   function jumpAndFlashWithinPage(targetIndex) {
-    console.log('[V3.8] jumpAndFlashWithinPage: targetIndex=' + targetIndex);
+    console.log('[V3.9] jumpAndFlashWithinPage: targetIndex=' + targetIndex);
     var target = null;
     var items = boxList.querySelectorAll('.agi-box-item');
     items.forEach(function(item) {
@@ -3242,10 +3242,10 @@ function autoFixText(text, type) {
       }
     });
     if (!target) {
-      console.log('[V3.8] target NOT FOUND on current page');
+      console.log('[V3.9] target NOT FOUND on current page');
       return;
     }
-    console.log('[V3.8] scrolling to target');
+    console.log('[V3.9] scrolling to target');
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     target.classList.add('agi-group-highlight');
     setTimeout(function() { target.classList.remove('agi-group-highlight'); }, 2000);
@@ -3348,7 +3348,7 @@ function autoFixText(text, type) {
       var fieldLocation = box.location || '';
       var fieldTitleLevel = (box.title_level !== undefined && box.title_level !== null) ? box.title_level : '';
       var fieldText = box.description || box.text || '';
-      // V3.8: 读取 attach_index 和 attach_page，默认为 -1
+      // V3.9: 读取 attach_index 和 attach_page，默认为 -1
       var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '-1';
       var fieldAttachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : '-1';
 
@@ -3846,7 +3846,7 @@ function buildResult() {
     var attachVal = parseInt(attachRaw);
     var attachIndex = isNaN(attachVal) ? -1 : attachVal;
 
-    // 构建 attach_info 对象（V3.8 新逻辑）
+    // 构建 attach_info 对象（V3.9 新逻辑）
     var attachInfo;
     if (attachIndex === -1) {
       // attach_index = -1：attach_page 必须为 -1，is_truncated 为 null
@@ -4734,7 +4734,7 @@ function handleClearCache() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.8（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.9（支持PDF）');
 
 })();
 </script>
