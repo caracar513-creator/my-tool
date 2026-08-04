@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.9</title>
+  <title>Benchmark V4 标注工具 V4.0</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -979,7 +979,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.9</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V4 标注工具 <small>V4.0</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -1678,24 +1678,13 @@
     finishPolygonDraw();
   }
 
-  // ========== 创建新标注框 ==========
+  // ========== V3.9: 创建新标注框 ==========
   function createNewBox(coords) {
-    // 计算当前页的最大index
     var currentPage = currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '';
-    var maxIndex = -1;
-    for (var i = 0; i < boxesData.length; i++) {
-      var boxPage = boxesData[i].page !== undefined ? parseInt(boxesData[i].page) : '';
-      if (boxPage === currentPage) {
-        var boxIndex = parseInt(boxesData[i].index);
-        if (!isNaN(boxIndex) && boxIndex > maxIndex) {
-          maxIndex = boxIndex;
-        }
-      }
-    }
-    var newIndex = maxIndex + 1;
     
+    // V3.9: 新增框时index保持为空，等待手动赋值
     var box = {
-      index: newIndex,
+      index: '', // 新增框index为空，手动赋值后参与顺延
       page: currentPage,
       type: '',
       location: '',
@@ -1706,9 +1695,13 @@
       coords: coords,
       description: '',
       text: '',
-      isNew: true  // 标记为新创建的框
+      isNew: true
     };
     boxesData.push(box);
+    
+    // V3.9: 对该页所有框重新从0开始连续编号
+    renumberPageIndexes(currentPage);
+    
     var newArrayIdx = boxesData.length - 1; // 保存数组索引
     renderAnnotationUI();
     renderAnnotationBoxes();
@@ -1727,22 +1720,11 @@
   }
 
   function createNewBoxPolygon(points) {
-    // 计算当前页的最大index
     var currentPage = currentContentType === 'pdf' ? (pdfCurrentPage - 1) : '';
-    var maxIndex = -1;
-    for (var i = 0; i < boxesData.length; i++) {
-      var boxPage = boxesData[i].page !== undefined ? parseInt(boxesData[i].page) : '';
-      if (boxPage === currentPage) {
-        var boxIndex = parseInt(boxesData[i].index);
-        if (!isNaN(boxIndex) && boxIndex > maxIndex) {
-          maxIndex = boxIndex;
-        }
-      }
-    }
-    var newIndex = maxIndex + 1;
     
+    // V3.9: 新增框时index保持为空，等待手动赋值
     var box = {
-      index: newIndex,
+      index: '', // 新增框index为空，手动赋值后参与顺延
       page: currentPage,
       type: '',
       location: '',
@@ -1757,6 +1739,10 @@
       isNew: true
     };
     boxesData.push(box);
+    
+    // V3.9: 对该页所有框重新从0开始连续编号
+    renumberPageIndexes(currentPage);
+    
     var newArrayIdx = boxesData.length - 1; // 保存数组索引
     renderAnnotationUI();
     renderAnnotationBoxes();
@@ -1811,25 +1797,57 @@
     });
   }
 
-  // ========== 将index > fromIndex的框的index减1（用于删除框） ==========
-  function shiftIndicesDown(deletedIndex) {
-    boxesData.forEach(function(box) {
-      if (box.index > deletedIndex) {
-        var oldIdx = box.index;
-        var newIdx = oldIdx - 1;
-        updateAttachIndexReferences(oldIdx, newIdx);
-        box.index = newIdx;
+  // ========== V3.9: 对指定页的所有框重新从0开始连续编号 ==========
+  function renumberPageIndexes(page) {
+    // 收集指定页的所有框（按当前index排序）
+    // 跳过index为空的新增框（尚未手动赋值的框不参与重编号）
+    var pageBoxes = [];
+    boxesData.forEach(function(box, arrayIdx) {
+      var boxPage = box.page !== undefined ? parseInt(box.page) : '';
+      if (isNaN(boxPage)) boxPage = '';
+      if (boxPage === page) {
+        // 跳过空index的新增框
+        if (box.index === '' || box.index === null || box.index === undefined) {
+          return;
+        }
+        pageBoxes.push({ box: box, arrayIdx: arrayIdx, oldIndex: box.index });
       }
     });
-    // 同时更新attach_index，如果attach_index等于被删除的index，需要清除
-    boxesData.forEach(function(box) {
-      var ai = parseInt(box.attach_index);
-      if (ai === deletedIndex) {
-        box.attach_index = '-1';
-      } else if (Array.isArray(box.attach_index)) {
-        box.attach_index = box.attach_index.filter(function(ai2) { return parseInt(ai2) !== deletedIndex; });
-        if (box.attach_index.length === 0) box.attach_index = '-1';
+    
+    // 按当前index从小到大排序
+    pageBoxes.sort(function(a, b) { return a.oldIndex - b.oldIndex; });
+    
+    // 建立旧index到新index的映射
+    var indexMap = {};
+    pageBoxes.forEach(function(item, newIdx) {
+      indexMap[item.oldIndex] = newIdx;
+    });
+    
+    // 更新同页内所有框的attach_index引用
+    pageBoxes.forEach(function(item) {
+      var box = item.box;
+      if (box.attach_index !== '-1' && box.attach_index !== '' && box.attach_index !== null && box.attach_index !== undefined) {
+        if (Array.isArray(box.attach_index)) {
+          box.attach_index = box.attach_index.map(function(ai) {
+            var aiVal = parseInt(ai);
+            // 只更新同页内的引用，跨页引用保持不变
+            if (indexMap[aiVal] !== undefined && box.attach_page === page) {
+              return String(indexMap[aiVal]);
+            }
+            return ai;
+          });
+        } else {
+          var aiVal = parseInt(box.attach_index);
+          if (indexMap[aiVal] !== undefined && box.attach_page === page) {
+            box.attach_index = String(indexMap[aiVal]);
+          }
+        }
       }
+    });
+    
+    // 应用新index
+    pageBoxes.forEach(function(item, newIdx) {
+      item.box.index = newIdx;
     });
   }
 
@@ -1838,14 +1856,39 @@
     var box = boxesData[arrayIdx];
     if (!confirm('确定删除 #' + box.index + ' 标注框？此操作不可撤销。')) return;
 
-    var deletedIndex = box.index;
+    var deletedPage = box.page !== undefined ? parseInt(box.page) : '';
+    if (isNaN(deletedPage)) deletedPage = '';
+    
+    // V3.9: 删除框并清除所有指向该框的attach关联
     boxesData.splice(arrayIdx, 1);
-    // 删除后，将大于被删除框index的框的index减1
-    shiftIndicesDown(deletedIndex);
+    
+    // 清除其他框对此框的attach关联（跨页引用）- 使用 == 进行类型松散比较
+    var deletedIndex = box.index;
+    boxesData.forEach(function(b) {
+      if (b.attach_page == deletedPage && b.attach_index !== '-1') {
+        if (Array.isArray(b.attach_index)) {
+          b.attach_index = b.attach_index.filter(function(ai) { return parseInt(ai) !== deletedIndex; });
+          if (b.attach_index.length === 0) {
+            b.attach_index = '-1';
+            b.attach_page = '';
+          }
+        } else if (parseInt(b.attach_index) === deletedIndex) {
+          b.attach_index = '-1';
+          b.attach_page = '';
+        }
+      }
+    });
+    
+    // V3.9: 对该页所有框重新从0开始连续编号
+    renumberPageIndexes(deletedPage);
+    
+    // FIX: 直接清空boxList，避免renderAnnotationUI中保存逻辑使用过期的data-index
+    boxList.innerHTML = '';
+    
     renderAnnotationUI();
     renderAnnotationBoxes();
     saveToCache();
-    showStatus('🗑️ 已删除标注框', 'success');
+    showStatus('🗑️ 已删除标注框，已重新编号并清除相关关联', 'success');
   }
 
   function clearAllBoxes() {
@@ -1859,66 +1902,68 @@
     showStatus('🗑️ 已清除所有标注框', 'success');
   }
 
-  // ========== index冲突处理（同页面内后续序号顺延） ==========
+  // ========== V3.9: index冲突处理（手动修改index后重新编号） ==========
   function handleIndexConflict(changedItem, newIndex) {
-    var oldIndex = parseInt(changedItem._oldIndex);
-    if (isNaN(oldIndex)) return;
+    var oldIndexRaw = changedItem._oldIndex;
+    var oldIndex = parseInt(oldIndexRaw);
+    var newIdxVal = parseInt(newIndex);
 
-    if (newIndex !== oldIndex) {
-      // 在boxesData中找到对应的框
-      var changedArrayIdx = parseInt(changedItem.dataset.index);
-      var changedBox = (!isNaN(changedArrayIdx) && boxesData[changedArrayIdx]) ? boxesData[changedArrayIdx] : null;
-      
-      // 获取被修改框的page
-      var changedPage = changedBox ? (changedBox.page !== undefined ? parseInt(changedBox.page) : '') : '';
-      if (isNaN(changedPage)) changedPage = '';
-
-      if (newIndex > oldIndex) {
-        // 索引增大：将同page中oldIndex+1到newIndex之间的框减1
-        // 例如：原index从2改为5，原来3,4,5的框变成2,3,4
-        var toDecrease = boxesData.filter(function(box) {
-          if (box === changedBox) return false;
-          var boxPage = box.page !== undefined ? parseInt(box.page) : '';
-          if (isNaN(boxPage)) boxPage = '';
-          return boxPage === changedPage && box.index > oldIndex && box.index <= newIndex;
-        });
-        // 按index从小到大排序，这样修改时不会影响后续查找
-        toDecrease.sort(function(a, b) { return a.index - b.index; });
-        toDecrease.forEach(function(box) {
-          var oldIdx = box.index;
-          var newIdx = oldIdx - 1;
-          updateAttachIndexReferences(oldIdx, newIdx);
-          box.index = newIdx;
-        });
-      } else {
-        // 索引减小：将同page中newIndex到oldIndex-1之间的框加1
-        // 例如：原index从5改为2，原来2,3,4的框变成3,4,5
-        var toIncrease = boxesData.filter(function(box) {
-          if (box === changedBox) return false;
-          var boxPage = box.page !== undefined ? parseInt(box.page) : '';
-          if (isNaN(boxPage)) boxPage = '';
-          return boxPage === changedPage && box.index >= newIndex && box.index < oldIndex;
-        });
-        // 按index从大到小排序，这样修改时不会影响后续查找
-        toIncrease.sort(function(a, b) { return b.index - a.index; });
-        toIncrease.forEach(function(box) {
-          var oldIdx = box.index;
-          var newIdx = oldIdx + 1;
-          updateAttachIndexReferences(oldIdx, newIdx);
-          box.index = newIdx;
-        });
-      }
-
-      // 更新被修改的框的index
-      if (changedBox) {
-        updateAttachIndexReferences(oldIndex, newIndex);
-        changedBox.index = newIndex;
-      }
-
-      // 更新DOM中的显示
-      updateIndexDisplayFromData();
+    // 新旧都空，无需处理
+    if ((oldIndexRaw === '' || oldIndexRaw === null || oldIndexRaw === undefined) &&
+        (newIndex === '' || newIndex === null || newIndex === undefined || isNaN(newIdxVal))) {
+      return;
     }
-    changedItem._oldIndex = newIndex;
+
+    // 新旧值相同（数字），无需处理
+    if (!isNaN(oldIndex) && !isNaN(newIdxVal) && oldIndex === newIdxVal) {
+      return;
+    }
+
+    // 在boxesData中找到对应的框
+    var changedArrayIdx = parseInt(changedItem.dataset.index);
+    var changedBox = (!isNaN(changedArrayIdx) && boxesData[changedArrayIdx]) ? boxesData[changedArrayIdx] : null;
+    
+    if (!changedBox) return;
+
+    // 获取被修改框的page
+    var changedPage = changedBox.page !== undefined ? parseInt(changedBox.page) : '';
+    if (isNaN(changedPage)) changedPage = '';
+
+    // 判断是否为新增框首次赋值（oldIndex为空）
+    var isNewBoxFirstAssign = (oldIndexRaw === '' || oldIndexRaw === null || oldIndexRaw === undefined) && !isNaN(newIdxVal);
+
+    if (isNewBoxFirstAssign) {
+      // 新增框首次赋值：将该页所有 index >= newIndex 的框顺延+1，然后设置新增框index
+      boxesData.forEach(function(box) {
+        var boxPage = box.page !== undefined ? parseInt(box.page) : '';
+        if (isNaN(boxPage)) boxPage = '';
+        if (boxPage === changedPage && box !== changedBox && box.index !== '' && box.index !== null && box.index !== undefined) {
+          var boxIdx = parseInt(box.index);
+          if (!isNaN(boxIdx) && boxIdx >= newIdxVal) {
+            box.index = boxIdx + 1;
+          }
+        }
+      });
+      // 设置新增框的index
+      changedBox.index = newIdxVal;
+    } else {
+      // 原有框修改：直接设置新值，然后重编号
+      changedBox.index = newIndex;
+      renumberPageIndexes(changedPage);
+    }
+
+    // 更新DOM中的显示
+    updateIndexDisplayFromData();
+    
+    // FIX: 直接清空boxList，避免renderAnnotationUI中保存逻辑使用过期的data-index
+    boxList.innerHTML = '';
+    
+    // V3.9: 重新渲染以确保面板和PDF上的框一致
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    saveToCache();
+    
+    changedItem._oldIndex = newIndex === '' ? '' : newIndex;
   }
 
   // ========== 根据boxesData更新DOM中的index显示 ==========
@@ -3263,11 +3308,11 @@ function autoFixText(text, type) {
       var box = boxesData[arrayIdx];
       var inputs = boxItem.querySelectorAll('input, select, textarea');
       inputs.forEach(function(el) {
-        if (el.classList.contains('agi-field-index')) box.index = parseInt(el.value) || 0;
-        else if (el.classList.contains('agi-field-page')) box.page = parseInt(el.value) || 0;
+        if (el.classList.contains('agi-field-index')) box.index = el.value === '' ? '' : (parseInt(el.value) || 0);
+        else if (el.classList.contains('agi-field-page')) box.page = el.value === '' ? '' : (parseInt(el.value) || 0);
         else if (el.classList.contains('agi-field-type')) box.type = el.value;
         else if (el.classList.contains('agi-field-location')) box.location = el.value;
-        else if (el.classList.contains('agi-field-title-level')) box.title_level = parseInt(el.value) || -1;
+        else if (el.classList.contains('agi-field-title-level')) box.title_level = el.value === '' ? '' : (parseInt(el.value) || -1);
         else if (el.classList.contains('agi-field-attach-index')) box.attach_index = el.value;
         else if (el.classList.contains('agi-field-attach-page')) box.attach_page = el.value;
         else if (el.classList.contains('agi-field-text')) { box.description = el.value; box.text = el.value; }
@@ -3303,6 +3348,10 @@ function autoFixText(text, type) {
     });
     allPages.sort(function(a, b) { return a - b; });
 
+    // FIX: 确保panelCurrentPage是数字类型，避免类型比较问题
+    panelCurrentPage = parseInt(panelCurrentPage);
+    if (isNaN(panelCurrentPage)) panelCurrentPage = 0;
+    
     // 如果当前页超出范围，重置为第一页
     if (allPages.length > 0 && allPages.indexOf(panelCurrentPage) === -1) {
       panelCurrentPage = allPages[0];
@@ -3528,15 +3577,15 @@ function autoFixText(text, type) {
         
         // 根据字段类型更新对应的boxesData属性
         if (el.classList.contains('agi-field-index')) {
-          box.index = parseInt(el.value) || 0;
+          box.index = el.value === '' ? '' : (parseInt(el.value) || 0);
         } else if (el.classList.contains('agi-field-page')) {
-          box.page = parseInt(el.value) || 0;
+          box.page = el.value === '' ? '' : (parseInt(el.value) || 0);
         } else if (el.classList.contains('agi-field-type')) {
           box.type = el.value;
         } else if (el.classList.contains('agi-field-location')) {
           box.location = el.value;
         } else if (el.classList.contains('agi-field-title-level')) {
-          box.title_level = parseInt(el.value) || -1;
+          box.title_level = el.value === '' ? '' : (parseInt(el.value) || -1);
         } else if (el.classList.contains('agi-field-attach-index')) {
           box.attach_index = el.value;
         } else if (el.classList.contains('agi-field-attach-page')) {
@@ -3587,9 +3636,9 @@ function autoFixText(text, type) {
       }
       // index字段：记录旧值，用于冲突检测
       if (el.classList.contains('agi-field-index')) {
-        // focus时记录旧值
+        // focus时记录旧值（保留空字符串，不转为0）
         el.addEventListener('focus', function() {
-          this._oldIndex = parseInt(this.value) || 0;
+          this._oldIndex = this.value;
         });
         el.addEventListener('change', function() {
           var newIdx = parseInt(this.value);
@@ -3597,7 +3646,7 @@ function autoFixText(text, type) {
             // 找到对应的 .agi-box-item 父元素
             var boxItem = this.closest('.agi-box-item');
             if (boxItem) {
-              boxItem._oldIndex = parseInt(this._oldIndex) || newIdx;
+              boxItem._oldIndex = this._oldIndex;
               handleIndexConflict(boxItem, newIdx);
             }
             renderAnnotationUI();
@@ -3874,16 +3923,12 @@ function buildResult() {
       attach_info: attachInfo
     };
 
-    // V3.6: 获取 format_text（只读字段，原样输出）
-    var formatText = box.format_text || '';
-
     blocks.push({
       page: (box.page !== undefined && box.page !== null) ? parseInt(box.page) : 0,
       index: (box.index !== undefined && box.index !== null) ? parseInt(box.index) : 0,
       position: position || [],
       attribute: attrObj,
-      text: (box.description || box.text || '').replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t'),
-      format_text: formatText
+      text: (box.description || box.text || '').replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t')
     });
   });
 
