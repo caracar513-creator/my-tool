@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V3 标注工具 V3.6</title>
+  <title>Benchmark V3 标注工具 V3.7</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -160,13 +160,111 @@
 
 /* 面板体 */
 .agi-panel-body {
-  padding: 12px 16px;
+  padding: 12px 30px 12px 16px;
   overflow-y: auto;
   flex: 1;
+  position: relative;
+}
+
+/* 自定义滚动条 - 与上下箭头按钮集成 */
+.agi-panel-body::-webkit-scrollbar {
+  width: 16px;
+}
+
+.agi-panel-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.agi-panel-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  border: 2px solid #f1f1f1;
+}
+
+.agi-panel-body::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* 隐藏原生滚动条按钮 */
+.agi-panel-body::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* 滚动条按钮容器 - 与滚动条在同一列，一直显示 */
+.agi-scrollbar-controls {
+  position: absolute;
+  right: 0;
+  top: 10px;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* 上下箭头按钮样式 */
+.agi-scrollbar-btn {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  border: none;
+  background: #e8e8e8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  padding: 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.agi-scrollbar-btn:last-child {
+  border-bottom: none;
+  border-top: 1px solid #ccc;
+}
+
+.agi-scrollbar-btn:hover {
+  background: #667eea;
+}
+
+.agi-scrollbar-btn:first-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.agi-scrollbar-btn:last-child {
+  border-radius: 0 0 4px 4px;
+}
+
+.agi-scrollbar-btn svg {
+  width: 10px;
+  height: 10px;
+  fill: #555;
+}
+
+.agi-scrollbar-btn:hover svg {
+  fill: #fff;
 }
 
 /* 按钮组 */
-.agi-btn-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.agi-btn-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+
+/* 当前页码显示 */
+.agi-page-indicator {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: none;
+}
+.agi-page-indicator.active {
+  display: inline-block;
+}
 .agi-btn {
   padding: 6px 12px; border: none; border-radius: 6px;
   cursor: pointer; font-size: 13px; font-weight: 500;
@@ -293,7 +391,45 @@
   margin-bottom: 8px;
 }
 .agi-box-title { font-weight: 600; font-size: 13px; color: #667eea; }
-.agi-box-coords { font-size: 11px; color: #999; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agi-box-coords {
+  font-size: 9px;
+  color: #999;
+  line-height: 1.3;
+  word-break: break-all;
+}
+/* 分页导航 */
+.agi-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-top: 1px solid #e8e8e8;
+  background: #fafafa;
+}
+.agi-pagination-btn {
+  padding: 4px 12px;
+  margin: 0 4px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+}
+.agi-pagination-btn:hover:not(:disabled) {
+  border-color: #4285f4;
+  color: #4285f4;
+}
+.agi-pagination-btn:disabled {
+  cursor: not-allowed;
+  color: #ccc;
+  background: #f5f5f5;
+}
+.agi-pagination-info {
+  font-size: 12px;
+  color: #666;
+  margin: 0 12px;
+}
 
 /* box 字段布局 */
 .agi-box-fields {
@@ -617,6 +753,18 @@
   animation: agi-shake 0.3s ease-in-out;
 }
 
+/* 标注框面板项错误高亮 */
+.agi-box-error {
+  border: 2px solid #ff4d4f !important;
+  box-shadow: 0 0 8px rgba(255, 77, 79, 0.4) !important;
+  animation: agi-box-pulse 1s ease-in-out infinite;
+}
+
+@keyframes agi-box-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 77, 79, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(255, 77, 79, 0.7); }
+}
+
 @keyframes agi-shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
@@ -733,25 +881,25 @@
 /* 标注框缩放手柄 */
 .agi-resize-handle {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
   background: #fff;
-  border: 2px solid #667eea;
-  border-radius: 2px;
+  border: 1.5px solid #667eea;
+  border-radius: 1px;
   z-index: 25;
   display: none;
 }
 .agi-annotation-box.agi-active .agi-resize-handle {
   display: block;
 }
-.agi-resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
-.agi-resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
-.agi-resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-.agi-resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
-.agi-resize-n { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
-.agi-resize-s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
-.agi-resize-w { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
-.agi-resize-e { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
+.agi-resize-nw { top: -3px; left: -3px; cursor: nw-resize; }
+.agi-resize-ne { top: -3px; right: -3px; cursor: ne-resize; }
+.agi-resize-sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+.agi-resize-se { bottom: -3px; right: -3px; cursor: se-resize; }
+.agi-resize-n { top: -3px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.agi-resize-s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.agi-resize-w { top: 50%; left: -3px; transform: translateY(-50%); cursor: w-resize; }
+.agi-resize-e { top: 50%; right: -3px; transform: translateY(-50%); cursor: e-resize; }
 
 /* 绘制模式工具栏 */
 .agi-draw-toolbar {
@@ -831,7 +979,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.6</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V3 标注工具 <small>V3.7</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -840,10 +988,9 @@
   <div class="agi-panel-body">
     <div class="agi-btn-group">
       <button id="agi-btn-load-data" class="agi-btn agi-btn-primary">📥 加载数据</button>
-      <button id="agi-btn-load-local" class="agi-btn agi-btn-primary">📁 加载本地文件</button>
       <button id="agi-btn-export" class="agi-btn agi-btn-success">📋 导出JSON</button>
       <button id="agi-btn-clear-cache" class="agi-btn agi-btn-secondary">🗑️ 清除缓存</button>
-      <input type="file" id="agi-file-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none;">
+      <span class="agi-page-indicator" id="agi-page-indicator">page 0</span>
     </div>
     <!-- 绘制模式工具栏 -->
     <div class="agi-draw-toolbar" id="agi-draw-toolbar">
@@ -877,6 +1024,15 @@
       暂无标注数据<br>请通过导入或平台初始化加载
     </div>
   </div>
+  <!-- 自定义滚动条控制按钮 - 与滚动条集成 -->
+  <div class="agi-scrollbar-controls" id="agi-scrollbar-controls">
+    <button class="agi-scrollbar-btn" id="agi-scroll-top-btn" title="一键到顶">
+      <svg viewBox="0 0 24 24"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+    </button>
+    <button class="agi-scrollbar-btn" id="agi-scroll-bottom-btn" title="一键到底">
+      <svg viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
+    </button>
+  </div>
   <div class="agi-panel-footer">
     <button id="agi-btn-zoom-out" class="agi-btn agi-btn-sm agi-btn-secondary" title="缩小">−</button>
     <span id="agi-zoom-level">100%</span>
@@ -893,12 +1049,13 @@
     </div>
     <div class="agi-modal-body">
       <div class="agi-modal-field">
-        <label>图片/PDF URL（可选）：</label>
-        <input type="text" id="agi-input-image-url" placeholder="输入图片或PDF链接">
+        <label>本地文件（PDF或图片）：</label>
+        <input type="file" id="agi-input-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp">
       </div>
       <div class="agi-modal-field">
         <label>标注数据 JSON（可选）：</label>
         <textarea id="agi-input-json" placeholder='粘贴JSON标注数据，如：{"agi_data_pdf_s3url": "", "ocr_data_id": "", "meta_info": {}, "pdf_id": "", "data_batch": "", "annotation_ocr_result": {"update_time": "", "version": "V3.6", "contents": [{"page": 0, "blocks": [{"page": 0, "index": 0, "position": [100, 50, 400, 50, 400, 150, 100, 150], "attribute": {"type": "title", "location": "main", "title_level": 1, "attach_info": {"attach_index": null, "attach_page": null, "is_truncated": false}}, "text": "示例标题", "format_text": "示例标题"}]}]}}'></textarea>
+        <button id="agi-btn-extract-pdf" class="agi-btn agi-btn-sm agi-btn-secondary" style="margin-top:8px;">🔗 提取PDF</button>
       </div>
     </div>
     <div class="agi-modal-footer">
@@ -981,6 +1138,9 @@
   var resizeHandle = '';         // 当前缩放手柄方向
   var dragStartBoxInfo = null;   // 拖拽开始时的框信息
 
+  // ========== 标注框面板分页状态 ==========
+  var panelCurrentPage = 0;      // 当前面板显示的页码（从0开始）
+
   // ========== DOM引用 ==========
   var imageContainer = document.getElementById('agi-image-container');
   var imageWrapper = document.getElementById('agi-image-wrapper');
@@ -1002,11 +1162,10 @@
   var btnZoomOut = document.getElementById('agi-btn-zoom-out');
   var zoomLevelEl = document.getElementById('agi-zoom-level');
   var btnLoadData = document.getElementById('agi-btn-load-data');
-  var btnLoadLocal = document.getElementById('agi-btn-load-local');
-  var fileInput = document.getElementById('agi-file-input');
+  var inputFile = document.getElementById('agi-input-file');
+  var btnExtractPdf = document.getElementById('agi-btn-extract-pdf');
   var modalOverlay = document.getElementById('agi-modal-overlay');
   var modalClose = document.getElementById('agi-modal-close');
-  var inputImageUrl = document.getElementById('agi-input-image-url');
   var inputJson = document.getElementById('agi-input-json');
   var btnApplyData = document.getElementById('agi-btn-apply-data');
   var emptyState = document.getElementById('agi-empty-state');
@@ -1019,6 +1178,7 @@
   var continuousRectCheckbox = document.getElementById('agi-continuous-rect');
   var polygonPointsInput = document.getElementById('agi-polygon-points');
   var drawHint = document.getElementById('agi-draw-hint');
+  var pageIndicator = document.getElementById('agi-page-indicator');
 
   // ========== 安全localStorage封装 ==========
   function safeStorageGet(key) {
@@ -1692,6 +1852,7 @@
     if (boxesData.length === 0) return;
     if (!confirm('确定清除所有 ' + boxesData.length + ' 个标注框？此操作不可撤销。')) return;
     boxesData = [];
+    panelCurrentPage = 0;
     renderAnnotationUI();
     renderAnnotationBoxes();
     saveToCache();
@@ -2692,6 +2853,13 @@ function autoFixText(text, type) {
         if (e.target.classList.contains('agi-resize-handle') || 
             e.target.classList.contains('agi-box-delete-btn')) return;
         e.stopPropagation();
+        // 获取该标注框的page，如果与面板当前页不同，先切换面板页
+        var boxPage = parseInt(boxesData[idx].page);
+        if (isNaN(boxPage)) boxPage = 0;
+        if (boxPage !== panelCurrentPage) {
+          panelCurrentPage = boxPage;
+          renderAnnotationUI();
+        }
         jumpToAnnotationItem(idx);
       });
 
@@ -2829,6 +2997,15 @@ function autoFixText(text, type) {
 
   // ========== 从面板点击跳转到图片标注框 ==========
   function jumpToImageBox(arrayIdx) {
+    // 如果是PDF模式，检查是否需要翻页
+    if (currentContentType === 'pdf') {
+      var boxPage = parseInt(boxesData[arrayIdx].page);
+      if (isNaN(boxPage)) boxPage = 0;
+      var pdfPageNum = boxPage + 1; // pdfCurrentPage从1开始
+      if (pdfPageNum !== pdfCurrentPage && pdfPageNum >= 1 && pdfPageNum <= pdfTotalPages) {
+        goToPage(pdfPageNum);
+      }
+    }
     // arrayIdx是boxesData中的数组索引，直接用于跳转
     jumpToAnnotationItem(arrayIdx, true);
   }
@@ -3039,7 +3216,28 @@ function autoFixText(text, type) {
       return idxA - idxB;
     });
 
+    // 提取所有不同的page值并排序，用于分页
+    var allPages = [];
     sortedBoxes.forEach(function(entry) {
+      var p = parseInt(entry.box.page);
+      if (isNaN(p)) p = 0;
+      if (allPages.indexOf(p) === -1) allPages.push(p);
+    });
+    allPages.sort(function(a, b) { return a - b; });
+
+    // 如果当前页超出范围，重置为第一页
+    if (allPages.length > 0 && allPages.indexOf(panelCurrentPage) === -1) {
+      panelCurrentPage = allPages[0];
+    }
+
+    // 只渲染当前页的box
+    var currentPageBoxes = sortedBoxes.filter(function(entry) {
+      var p = parseInt(entry.box.page);
+      if (isNaN(p)) p = 0;
+      return p === panelCurrentPage;
+    });
+
+    currentPageBoxes.forEach(function(entry) {
       var box = entry.box;
       var idx = entry.idx;
       var position = coordsToPosition(box.coords);
@@ -3344,6 +3542,74 @@ function autoFixText(text, type) {
     attachInputs.forEach(function(input) {
       toggleIsTruncatedVisibility(input);
     });
+
+    // ========== 渲染分页导航 ==========
+    renderPagination(allPages);
+  }
+
+  // ========== 渲染分页导航 ==========
+  function renderPagination(allPages) {
+    // 移除已有的分页导航
+    var existingPagination = document.querySelector('.agi-pagination');
+    if (existingPagination) {
+      existingPagination.remove();
+    }
+
+    // 如果没有多个page，不显示分页
+    if (allPages.length <= 1) return;
+
+    var currentPageIndex = allPages.indexOf(panelCurrentPage);
+    if (currentPageIndex === -1) currentPageIndex = 0;
+
+    var paginationEl = document.createElement('div');
+    paginationEl.className = 'agi-pagination';
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'agi-pagination-btn';
+    prevBtn.textContent = '← 上一页';
+    prevBtn.disabled = currentPageIndex <= 0;
+    prevBtn.addEventListener('click', function() {
+      if (currentPageIndex > 0) {
+        panelCurrentPage = allPages[currentPageIndex - 1];
+        renderAnnotationUI();
+      }
+    });
+
+    var pageInfo = document.createElement('span');
+    pageInfo.className = 'agi-pagination-info';
+    pageInfo.textContent = 'page ' + panelCurrentPage + ' / 共 ' + allPages.length + ' 页';
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'agi-pagination-btn';
+    nextBtn.textContent = '下一页 →';
+    nextBtn.disabled = currentPageIndex >= allPages.length - 1;
+    nextBtn.addEventListener('click', function() {
+      if (currentPageIndex < allPages.length - 1) {
+        panelCurrentPage = allPages[currentPageIndex + 1];
+        renderAnnotationUI();
+      }
+    });
+
+    paginationEl.appendChild(prevBtn);
+    paginationEl.appendChild(pageInfo);
+    paginationEl.appendChild(nextBtn);
+
+    // 插入到 boxList 之后
+    boxList.parentNode.insertBefore(paginationEl, boxList.nextSibling);
+
+    // 更新右上角page指示器
+    updatePageIndicator(allPages);
+  }
+
+  // ========== 更新右上角page指示器 ==========
+  function updatePageIndicator(allPages) {
+    if (!pageIndicator) return;
+    if (allPages.length <= 1) {
+      pageIndicator.classList.remove('active');
+      return;
+    }
+    pageIndicator.textContent = 'page ' + panelCurrentPage;
+    pageIndicator.classList.add('active');
   }
 
 // ========== 清除字段错误高亮 ==========
@@ -3357,86 +3623,103 @@ function clearFieldErrors() {
 // ========== 验证必填字段 ==========
 function validateRequiredFields() {
   clearFieldErrors();
-  var firstError = null;
   var errorMessages = [];
-  
-  var boxItems = boxList.querySelectorAll('.agi-box-item');
-  
-  boxItems.forEach(function(item, idx) {
-    var boxTitle = item.querySelector('.agi-box-title');
-    var itemLabel = boxTitle ? boxTitle.textContent : ('第' + (idx + 1) + '项');
-    
+  var firstErrorArrayIdx = -1;
+  var firstErrorField = '';
+
+  // 遍历boxesData验证所有页的数据
+  boxesData.forEach(function(box, idx) {
+    var itemLabel = 'index=' + (box.index !== undefined ? box.index : idx) + ', page=' + (box.page !== undefined ? box.page : 0);
+
     // 验证 index
-    var indexField = item.querySelector('.agi-field-index');
-    if (!indexField.value.trim()) {
-      indexField.classList.add('agi-field-error');
-      if (!firstError) firstError = indexField;
+    if (box.index === undefined || box.index === null || box.index === '') {
       errorMessages.push(itemLabel + ': index为空');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'index'; }
     }
-    
+
     // 验证 page
-    var pageField = item.querySelector('.agi-field-page');
-    if (!pageField.value.trim()) {
-      pageField.classList.add('agi-field-error');
-      if (!firstError) firstError = pageField;
+    if (box.page === undefined || box.page === null || box.page === '') {
       errorMessages.push(itemLabel + ': page为空');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'page'; }
     }
-    
+
     // 验证 type
-    var typeField = item.querySelector('.agi-field-type');
-    if (!typeField.value.trim()) {
-      typeField.classList.add('agi-field-error');
-      if (!firstError) firstError = typeField;
+    if (!box.type) {
       errorMessages.push(itemLabel + ': type为空');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'type'; }
     }
-    
+
     // 验证 location
-    var locationField = item.querySelector('.agi-field-location');
-    if (!locationField.value.trim()) {
-      locationField.classList.add('agi-field-error');
-      if (!firstError) firstError = locationField;
+    if (!box.location) {
       errorMessages.push(itemLabel + ': location为空');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'location'; }
     }
-    
+
     // 验证 title_level
-    var titleLevelField = item.querySelector('.agi-field-title-level');
-    if (!titleLevelField.value.trim()) {
-      titleLevelField.classList.add('agi-field-error');
-      if (!firstError) firstError = titleLevelField;
+    if (box.title_level === undefined || box.title_level === null || box.title_level === '') {
       errorMessages.push(itemLabel + ': title_level为空');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'title_level'; }
     }
-    
+
     // 验证 attach_index（必须为数字，-1表示无关联）
-    var attachIndexField = item.querySelector('.agi-field-attach-index');
-    var attachIndexValue = attachIndexField.value.trim();
-    if (attachIndexValue === '' || attachIndexValue === '-1') {
-      // -1 表示无关联，attach_page 自动填充 -1，不需要验证
-    } else if (isNaN(Number(attachIndexValue))) {
-      attachIndexField.classList.add('agi-field-error');
-      if (!firstError) firstError = attachIndexField;
+    var attachIndex = box.attach_index;
+    if (attachIndex === undefined || attachIndex === null || attachIndex === '' || attachIndex === '-1') {
+      // -1 表示无关联，不需要验证
+    } else if (isNaN(Number(attachIndex))) {
       errorMessages.push(itemLabel + ': attach_index必须为数字');
+      if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'attach_index'; }
     } else {
       // attach_index ≠ -1 时，验证 attach_page（不能为 -1）
-      var attachPageField = item.querySelector('.agi-field-attach-page');
-      var attachPageValue = attachPageField ? attachPageField.value.trim() : '';
-      if (attachPageValue === '' || attachPageValue === '-1' || isNaN(Number(attachPageValue))) {
-        if (attachPageField) attachPageField.classList.add('agi-field-error');
-        if (!firstError) firstError = attachPageField || attachIndexField;
+      var attachPage = box.attach_page;
+      if (attachPage === undefined || attachPage === null || attachPage === '' || attachPage === '-1' || isNaN(Number(attachPage))) {
         errorMessages.push(itemLabel + ': attach_page必须为非-1的数字');
+        if (firstErrorArrayIdx === -1) { firstErrorArrayIdx = idx; firstErrorField = 'attach_page'; }
       }
     }
-    
-    // text字段允许为空，不验证
   });
-  
-  if (firstError) {
-    // 滚动到第一个错误字段
-    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    firstError.focus();
+
+  if (errorMessages.length > 0) {
+    // 高亮第一个错误的标注框面板项
+    highlightErrorBox(firstErrorArrayIdx, firstErrorField);
     return { valid: false, errors: errorMessages };
   }
-  
+
   return { valid: true, errors: [] };
+}
+
+// ========== 高亮错误标注框面板项 ==========
+function highlightErrorBox(arrayIdx, fieldName) {
+  if (arrayIdx < 0 || !boxesData[arrayIdx]) return;
+  var box = boxesData[arrayIdx];
+  var boxPage = parseInt(box.page);
+  if (isNaN(boxPage)) boxPage = 0;
+
+  // 如果错误不在当前页，先切换到对应页
+  if (boxPage !== panelCurrentPage) {
+    panelCurrentPage = boxPage;
+    renderAnnotationUI();
+  }
+
+  // 延迟高亮，等待渲染完成
+  setTimeout(function() {
+    var targetItem = boxList.querySelector('.agi-box-item[data-index="' + arrayIdx + '"]');
+    if (targetItem) {
+      // 高亮整个面板项
+      targetItem.classList.add('agi-box-error');
+      // 高亮具体错误字段
+      var field = targetItem.querySelector('.agi-field-' + fieldName);
+      if (field) {
+        field.classList.add('agi-field-error');
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field.focus();
+      }
+      // 3秒后移除高亮
+      setTimeout(function() {
+        targetItem.classList.remove('agi-box-error');
+        if (field) field.classList.remove('agi-field-error');
+      }, 3000);
+    }
+  }, 100);
 }
 
 // ========== 构建结果 ==========
@@ -3447,16 +3730,36 @@ function buildResult() {
     return null;
   }
 
+  // 检查是否存在非顺时针的多边形标注框
+  var nonClockwiseItems = [];
+  var firstNonClockwiseIdx = -1;
+  for (var i = 0; i < boxesData.length; i++) {
+    var box = boxesData[i];
+    var isPolygon = box.annotationType === 'POLYGON' ||
+      (box.coords && box.coords.points && box.coords.points.length > 4);
+    if (isPolygon && box.coords && box.coords.points && box.coords.points.length >= 3) {
+      if (!isClockwise(box.coords)) {
+        nonClockwiseItems.push(box.index !== undefined ? box.index : i);
+        if (firstNonClockwiseIdx === -1) firstNonClockwiseIdx = i;
+      }
+    }
+  }
+  if (nonClockwiseItems.length > 0) {
+    // 高亮第一个非顺时针的标注框面板项
+    highlightErrorBox(firstNonClockwiseIdx, 'position');
+    showStatus('❌ 导出失败：以下标注框未按顺时针方向标注：index=' + nonClockwiseItems.join(', index='), 'error');
+    return null;
+  }
+
   var version = 'v3.0';
   var updateTime = fetchedTime || getLocalTimeString();
   var blocks = [];  // V3.6: 先收集所有 block
-  var boxItems = boxList.querySelectorAll('.agi-box-item');
 
-  boxItems.forEach(function(item, idx) {
-    var box = boxesData[idx];
+  // 直接遍历boxesData获取所有页的数据（不再依赖DOM，避免分页导致只导出当前页）
+  boxesData.forEach(function(box) {
     var position = coordsToPosition(box ? box.coords : null);
-    var titleLevel = parseInt(item.querySelector('.agi-field-title-level').value);
-    var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
+    var titleLevel = (box.title_level !== undefined && box.title_level !== null) ? box.title_level : -1;
+    var attachRaw = box.attach_index !== undefined ? String(box.attach_index) : '-1';
     var attachVal = parseInt(attachRaw);
     var attachIndex = isNaN(attachVal) ? -1 : attachVal;
 
@@ -3467,34 +3770,32 @@ function buildResult() {
       attachInfo = { attach_index: -1, attach_page: -1, is_truncated: null };
     } else {
       // attach_index ≠ -1：需要填 attach_page 和 is_truncated
-      var attachPageRaw = item.querySelector('.agi-field-attach-page').value.trim();
-      var attachPage = parseInt(attachPageRaw);
-      var isTruncatedCheckbox = item.querySelector('.agi-field-is-truncated');
+      var attachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : null;
+      var isTruncated = (box.is_truncated !== undefined) ? box.is_truncated : false;
       attachInfo = {
         attach_index: attachIndex,
-        attach_page: isNaN(attachPage) || attachPage === -1 ? null : attachPage,
-        is_truncated: isTruncatedCheckbox ? isTruncatedCheckbox.checked : false
+        attach_page: (attachPage === null || attachPage === -1) ? null : attachPage,
+        is_truncated: isTruncated
       };
     }
 
     // 构建 attribute 对象
     var attrObj = {
-      type: item.querySelector('.agi-field-type').value,
-      location: item.querySelector('.agi-field-location').value,
+      type: box.type || '',
+      location: box.location || '',
       title_level: isNaN(titleLevel) ? -1 : titleLevel,
       attach_info: attachInfo
     };
 
     // V3.6: 获取 format_text（只读字段，原样输出）
-    var formatTextEl = item.querySelector('.agi-field-format-text');
-    var formatText = formatTextEl ? formatTextEl.value : '';
+    var formatText = box.format_text || '';
 
     blocks.push({
-      page: parseInt(item.querySelector('.agi-field-page').value) || 0,
-      index: parseInt(item.querySelector('.agi-field-index').value) || 0,
+      page: (box.page !== undefined && box.page !== null) ? parseInt(box.page) : 0,
+      index: (box.index !== undefined && box.index !== null) ? parseInt(box.index) : 0,
       position: position || [],
       attribute: attrObj,
-      text: item.querySelector('.agi-field-text').value.replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t'),
+      text: (box.description || box.text || '').replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t'),
       format_text: formatText
     });
   });
@@ -3675,6 +3976,7 @@ function handleClearCache() {
 	if (!confirm('确定清除当前页面的缓存数据？此操作不可撤销。')) return;
 	safeStorageRemove(getCacheKey());
 	boxesData = [];
+	panelCurrentPage = 0;
 	imageUrl = '';
 	imageInfo = null;
 	fetchedTime = '';
@@ -3701,12 +4003,10 @@ function handleClearCache() {
 		oldBoxes[i].parentNode.removeChild(oldBoxes[i]);
 	}
 
-	// 清除弹窗中的输入框（V3.3 修复）
-    // attach_index 输入框数字校验（V3.4 修复）
-    // 关联箭头点击跳转到图片标注框（V3.5 修复）
-    // attach_info 新格式支持（V3.6 修复）
-	if (inputImageUrl) inputImageUrl.value = '';
+	// 清除弹窗中的输入框
 	if (inputJson) inputJson.value = '';
+	var fileInput = document.getElementById('agi-input-file');
+	if (fileInput) fileInput.value = '';
 
 	showStatus('🗑️ 缓存已清除', 'success');
 }
@@ -3803,16 +4103,6 @@ function handleClearCache() {
   btnExport.addEventListener('click', handleExport);
   btnClearCache.addEventListener('click', handleClearCache);
 
-  // 本地文件加载事件
-  btnLoadLocal.addEventListener('click', function() {
-    fileInput.click();
-  });
-  fileInput.addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    loadLocalFile(file);
-  });
-
   // 数据加载弹窗事件
   btnLoadData.addEventListener('click', function() {
     modalOverlay.style.display = 'flex';
@@ -3823,15 +4113,39 @@ function handleClearCache() {
   modalOverlay.addEventListener('click', function(e) {
     if (e.target === modalOverlay) modalOverlay.style.display = 'none';
   });
-  btnApplyData.addEventListener('click', function() {
-    var url = inputImageUrl.value.trim();
+  
+  // 提取PDF按钮事件
+  btnExtractPdf.addEventListener('click', function() {
     var jsonStr = inputJson.value.trim();
-    if (!url && !jsonStr) {
-      showStatus('⚠️ 请输入图片URL或JSON数据', 'error');
+    if (!jsonStr) {
+      showStatus('⚠️ 请先粘贴JSON数据', 'error');
+      return;
+    }
+    try {
+      var parsed = JSON.parse(jsonStr);
+      var pdfUrl = parsed.agi_data_pdf_s3url;
+      if (!pdfUrl) {
+        showStatus('⚠️ JSON中未找到 agi_data_pdf_s3url 字段', 'error');
+        return;
+      }
+      window.open(pdfUrl, '_blank');
+    } catch(e) {
+      showStatus('❌ JSON解析失败: ' + e.message, 'error');
+    }
+  });
+  
+  btnApplyData.addEventListener('click', function() {
+    var file = inputFile.files[0];
+    var jsonStr = inputJson.value.trim();
+    if (!file && !jsonStr) {
+      showStatus('⚠️ 请选择文件或粘贴JSON数据', 'error');
       return;
     }
     modalOverlay.style.display = 'none';
-    applyLocalData(url, jsonStr);
+    applyLocalData(file, jsonStr);
+    // 清除文件输入框，下次打开弹窗时是干净的状态
+    inputFile.value = '';
+    inputJson.value = '';
   });
   btnCopy.addEventListener('click', function() {
     copyToClipboard(resultJson.value).then(function() {
@@ -4049,6 +4363,7 @@ function handleClearCache() {
 
     if (allBlocks.length > 0) {
       boxesData = [];
+      panelCurrentPage = 0;
       // V3.6: 检查重复的 page+index 组合
       var pageIndexMap = {};
       allBlocks.forEach(function(item, i) {
@@ -4223,7 +4538,7 @@ function handleClearCache() {
   });
 
   // ========== 本地测试模式 ==========
-  function applyLocalData(imageUrlStr, jsonStr) {
+  function applyLocalData(file, jsonStr) {
     var data = {};
     if (jsonStr) {
       try {
@@ -4252,8 +4567,7 @@ function handleClearCache() {
           else if (parsed.version) data.version = parsed.version;
           if (ocrResult.update_time) data.update_time = ocrResult.update_time;
           else if (parsed.update_time) data.update_time = parsed.update_time;
-          if (parsed.image_url) data.image_url = parsed.image_url;
-          // 保存顶层字段（V3.6 新格式）
+          // 保存顶层字段（V3.6 新格式），但不用于渲染
           if (parsed.agi_data_pdf_s3url !== undefined) data.agi_data_pdf_s3url = parsed.agi_data_pdf_s3url;
           if (parsed.ocr_data_id !== undefined) data.ocr_data_id = parsed.ocr_data_id;
           if (parsed.meta_info !== undefined) data.meta_info = parsed.meta_info;
@@ -4266,15 +4580,14 @@ function handleClearCache() {
       }
     }
 
-    if (imageUrlStr) data.image_url = imageUrlStr;
-
-    if (data.image_url) {
-      loadImage(data.image_url);
+    // 优先使用本地文件渲染
+    if (file) {
+      loadLocalFile(file);
     }
 
     if (data.contents && data.contents.length > 0) {
       handleInitData(data);
-    } else if (!data.image_url) {
+    } else if (!file) {
       showStatus('⚠️ 未找到有效的标注数据', 'error');
     }
   }
@@ -4285,7 +4598,7 @@ function handleClearCache() {
     if (params.get('demo') === '1') {
       var demoData = generateDemoData();
       setTimeout(function() {
-        applyLocalData(demoData.image_url, JSON.stringify(demoData));
+        applyLocalData(null, JSON.stringify(demoData));
         showStatus('🎯 已加载示例数据', 'info');
       }, 500);
       return true;
@@ -4295,11 +4608,27 @@ function handleClearCache() {
 
   // ========== 初始化 ==========
   initPanelZoom();
+
+  // 滚动条控制按钮事件 - 一键到顶/到底
+  var scrollControls = document.getElementById('agi-scrollbar-controls');
+  var scrollTopBtn = document.getElementById('agi-scroll-top-btn');
+  var scrollBottomBtn = document.getElementById('agi-scroll-bottom-btn');
+  var panelBody = panel.querySelector('.agi-panel-body');
+
+  if (scrollTopBtn && scrollBottomBtn && panelBody) {
+    scrollTopBtn.addEventListener('click', function() {
+      panelBody.scrollTop = 0;
+    });
+    scrollBottomBtn.addEventListener('click', function() {
+      panelBody.scrollTop = panelBody.scrollHeight;
+    });
+  }
+
   restoreFromCache();
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.6（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.7（支持PDF）');
 
 })();
 </script>
