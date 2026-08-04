@@ -3069,20 +3069,30 @@ function autoFixText(text, type) {
   }
 
   // ========== is_truncated 显示/隐藏控制 ==========
+  // V3.8: 根据 attach_index 和 attach_page 的值控制 is_truncated 显示
   function toggleIsTruncatedVisibility(attachInput) {
     var boxItem = attachInput.closest('.agi-box-item');
     if (!boxItem) return;
     var isTruncatedLabel = boxItem.querySelector('.agi-is-truncated-label');
+    var attachIndexInput = boxItem.querySelector('.agi-field-attach-index');
     var attachPageInput = boxItem.querySelector('.agi-field-attach-page');
-    if (!isTruncatedLabel) return;
-    var raw = attachInput.value.trim();
-    var val = parseInt(raw);
-    if (raw === '-1' || raw === '' || isNaN(val) || val === -1) {
+    if (!isTruncatedLabel || !attachIndexInput) return;
+
+    var indexRaw = attachIndexInput.value.trim();
+    var indexVal = parseInt(indexRaw);
+    var pageRaw = attachPageInput ? attachPageInput.value.trim() : '-1';
+    var pageVal = parseInt(pageRaw);
+
+    // attach_index = -1 或 attach_page = -1：隐藏 is_truncated，自动同步 attach_page
+    if (indexRaw === '-1' || indexRaw === '' || isNaN(indexVal) || indexVal === -1) {
       // attach_index = -1：自动填充 attach_page = -1，隐藏 is_truncated
       isTruncatedLabel.classList.add('agi-hidden');
       if (attachPageInput) attachPageInput.value = '-1';
+    } else if (pageRaw === '-1' || pageRaw === '' || isNaN(pageVal) || pageVal === -1) {
+      // attach_index ≠ -1 但 attach_page = -1：无效状态，隐藏 is_truncated
+      isTruncatedLabel.classList.add('agi-hidden');
     } else {
-      // attach_index ≠ -1：显示 is_truncated 选框
+      // attach_index ≠ -1 且 attach_page ≠ -1：显示 is_truncated 选框
       isTruncatedLabel.classList.remove('agi-hidden');
     }
   }
@@ -3245,6 +3255,26 @@ function autoFixText(text, type) {
   function renderAnnotationUI() {
     annotationArea.classList.remove('agi-hidden');
     emptyState.style.display = 'none';
+
+    // FIX: 清除DOM前，先将当前所有输入框的值保存到boxesData（确保切换页面时不丢失修改）
+    boxList.querySelectorAll('.agi-box-item').forEach(function(boxItem) {
+      var arrayIdx = parseInt(boxItem.dataset.index);
+      if (isNaN(arrayIdx) || !boxesData[arrayIdx]) return;
+      var box = boxesData[arrayIdx];
+      var inputs = boxItem.querySelectorAll('input, select, textarea');
+      inputs.forEach(function(el) {
+        if (el.classList.contains('agi-field-index')) box.index = parseInt(el.value) || 0;
+        else if (el.classList.contains('agi-field-page')) box.page = parseInt(el.value) || 0;
+        else if (el.classList.contains('agi-field-type')) box.type = el.value;
+        else if (el.classList.contains('agi-field-location')) box.location = el.value;
+        else if (el.classList.contains('agi-field-title-level')) box.title_level = parseInt(el.value) || -1;
+        else if (el.classList.contains('agi-field-attach-index')) box.attach_index = el.value;
+        else if (el.classList.contains('agi-field-attach-page')) box.attach_page = el.value;
+        else if (el.classList.contains('agi-field-text')) { box.description = el.value; box.text = el.value; }
+        else if (el.classList.contains('agi-field-is-truncated')) { box.is_truncated = el.checked; }
+      });
+    });
+
     boxList.innerHTML = '';
 
     // 按 page + index 排序（page 优先，然后 index）
@@ -3514,29 +3544,31 @@ function autoFixText(text, type) {
         } else if (el.classList.contains('agi-field-text')) {
           box.description = el.value;
           box.text = el.value;
+        } else if (el.classList.contains('agi-field-is-truncated')) {
+          box.is_truncated = el.checked;
         }
       }
 
-      el.addEventListener('change', function() { 
+      el.addEventListener('change', function() {
         // 清除错误高亮
         el.classList.remove('agi-field-error');
         // 更新boxesData
         updateBoxData();
         saveToCache();
-        // attach_index或attach_page变化时更新关联高亮
+        // attach_index或attach_page变化时更新关联高亮和is_truncated显示
         if (el.classList.contains('agi-field-attach-index') || el.classList.contains('agi-field-attach-page')) {
           updateAttachHighlight();
           applyBoxGroupColors();
           toggleIsTruncatedVisibility(el);
         }
       });
-      el.addEventListener('input', debounce(function() { 
+      el.addEventListener('input', debounce(function() {
         // 清除错误高亮
         el.classList.remove('agi-field-error');
         // 更新boxesData
         updateBoxData();
         saveToCache();
-        // attach_index或attach_page变化时更新关联高亮
+        // attach_index或attach_page变化时更新关联高亮和is_truncated显示
         if (el.classList.contains('agi-field-attach-index') || el.classList.contains('agi-field-attach-page')) {
           updateAttachHighlight();
           applyBoxGroupColors();
@@ -3814,18 +3846,22 @@ function buildResult() {
     var attachVal = parseInt(attachRaw);
     var attachIndex = isNaN(attachVal) ? -1 : attachVal;
 
-    // 构建 attach_info 对象（V3.6 新逻辑）
+    // 构建 attach_info 对象（V3.8 新逻辑）
     var attachInfo;
     if (attachIndex === -1) {
-      // attach_index = -1：输出 -1, -1, null
+      // attach_index = -1：attach_page 必须为 -1，is_truncated 为 null
       attachInfo = { attach_index: -1, attach_page: -1, is_truncated: null };
     } else {
-      // attach_index ≠ -1：需要填 attach_page 和 is_truncated
-      var attachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : null;
-      var isTruncated = (box.is_truncated !== undefined) ? box.is_truncated : false;
+      // attach_index ≠ -1：attach_page 必须 ≠ -1，is_truncated 根据复选框
+      var attachPage = box.attach_page;
+      // 确保 attach_page 不是 -1 或 null（如果无效则输出原值，由验证环节拦截）
+      if (attachPage === null || attachPage === undefined || attachPage === '' || attachPage === '-1') {
+        attachPage = -1; // 标记为无效，validateRequiredFields 会报错
+      }
+      var isTruncated = (box.is_truncated === true);
       attachInfo = {
         attach_index: attachIndex,
-        attach_page: (attachPage === null || attachPage === -1) ? null : attachPage,
+        attach_page: parseInt(attachPage),
         is_truncated: isTruncated
       };
     }
@@ -3883,16 +3919,35 @@ function buildResult() {
   };
 }
 
-  // ========== 导出JSON ==========
-  function handleExport() {
-    var result = buildResult();
-    if (!result) return;
-    var jsonStr = JSON.stringify(result, null, 2);
-    resultJson.value = jsonStr;
-    resultArea.classList.remove('agi-hidden');
-    emptyState.style.display = 'none';
-    showStatus('📋 已生成JSON结果', 'info');
-  }
+// ========== 导出JSON ==========
+function handleExport() {
+  // FIX: 导出前先将当前面板所有输入框的值保存到boxesData（确保正在编辑的值被保存）
+  boxList.querySelectorAll('.agi-box-item').forEach(function(boxItem) {
+    var arrayIdx = parseInt(boxItem.dataset.index);
+    if (isNaN(arrayIdx) || !boxesData[arrayIdx]) return;
+    var box = boxesData[arrayIdx];
+    var inputs = boxItem.querySelectorAll('input, select, textarea');
+    inputs.forEach(function(el) {
+      if (el.classList.contains('agi-field-index')) box.index = parseInt(el.value) || 0;
+      else if (el.classList.contains('agi-field-page')) box.page = parseInt(el.value) || 0;
+      else if (el.classList.contains('agi-field-type')) box.type = el.value;
+      else if (el.classList.contains('agi-field-location')) box.location = el.value;
+      else if (el.classList.contains('agi-field-title-level')) box.title_level = parseInt(el.value) || -1;
+      else if (el.classList.contains('agi-field-attach-index')) box.attach_index = el.value;
+      else if (el.classList.contains('agi-field-attach-page')) box.attach_page = el.value;
+      else if (el.classList.contains('agi-field-text')) { box.description = el.value; box.text = el.value; }
+      else if (el.classList.contains('agi-field-is-truncated')) { box.is_truncated = el.checked; }
+    });
+  });
+
+  var result = buildResult();
+  if (!result) return;
+  var jsonStr = JSON.stringify(result, null, 2);
+  resultJson.value = jsonStr;
+  resultArea.classList.remove('agi-hidden');
+  emptyState.style.display = 'none';
+  showStatus('📋 已生成JSON结果', 'info');
+}
 
   // ========== 缓存操作 ==========
   function getCacheKey() {
