@@ -2416,10 +2416,9 @@
     if (!coords) return null;
 
     if (coords.points && Array.isArray(coords.points)) {
-      // 多边形：排序顶点（从左上角开始，顺时针）
-      var sorted = sortPolygonPointsClockwiseFromTopLeft(coords.points);
+      // 多边形：按用户点击的原始顺序输出坐标
       var result = [];
-      sorted.forEach(function(p) {
+      coords.points.forEach(function(p) {
         result.push(Math.round(p.x));
         result.push(Math.round(p.y));
       });
