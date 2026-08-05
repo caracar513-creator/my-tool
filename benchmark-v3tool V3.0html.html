@@ -981,7 +981,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V4.1 标注工具 <small>V4.1</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V4.3 标注工具 <small>V4.3</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -1906,7 +1906,7 @@
     showStatus('🗑️ 已清除所有标注框', 'success');
   }
 
-  // ========== V4.1: 批量删除框功能 ==========
+  // ========== V4.3: 批量删除框功能 ==========
   var selectedBoxes = new Set();
 
   function updateSelectionUI() {
@@ -3469,7 +3469,7 @@ function autoFixText(text, type) {
       // V3.9: 读取 attach_index 和 attach_page，默认为 -1
       var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '-1';
       var fieldAttachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : '-1';
-      // V4.1: 读取 is_truncated 勾选状态
+      // V4.3: 读取 is_truncated 勾选状态
       var fieldIsTruncated = (box.is_truncated === true);
 
       // 生成type选项，设置selected（空值时显示空选项）
@@ -3749,7 +3749,7 @@ function autoFixText(text, type) {
 
     // ========== 渲染分页导航 ==========
     renderPagination(allPages);
-    // V4.1: 同步选中状态到UI
+    // V4.3: 同步选中状态到UI
     updateSelectionUI();
   }
 
@@ -4284,7 +4284,7 @@ function handleClearCache() {
 
     if (raw.version) item.version = raw.version;
 
-    // V4.1: 保留 attribute 引用，确保后续创建 box 时能正确读取 attach_info
+    // V4.3: 保留 attribute 引用，确保后续创建 box 时能正确读取 attach_info
     item.attribute = attr;
 
     return item;
