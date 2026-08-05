@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V4 标注工具 V4.0</title>
+  <title>Benchmark V4.3 标注工具 V4.3</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -285,6 +285,8 @@
 .agi-btn-success { background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%); color: #fff; }
 .agi-btn-warning { background: linear-gradient(135deg, #faad14 0%, #d48806 100%); color: #fff; }
 .agi-btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+.agi-btn-danger { background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%); color: #fff; }
+.agi-box-checkbox { width: 16px; height: 16px; margin-right: 8px; cursor: pointer; flex-shrink: 0; }
 .agi-btn-sm { padding: 3px 8px; font-size: 12px; }
 /* 按钮扩展组合：主按钮 + 扩展选项融为一体 */
 .agi-btn-ext-wrapper {
@@ -979,7 +981,7 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V4 标注工具 <small>V4.0</small></div>
+    <div class="agi-panel-title">🏷️ Benchmark V4.1 标注工具 <small>V4.1</small></div>
     <div class="agi-panel-actions">
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
@@ -1003,6 +1005,8 @@
         <span class="agi-btn-ext-label">点数:<input type="number" id="agi-polygon-points" value="6" min="3" max="6"></span>
       </span>
       <button id="agi-btn-cancel-draw" class="agi-btn agi-btn-sm agi-btn-secondary agi-hidden">❌ 取消绘制</button>
+      <button id="agi-btn-select-all" class="agi-btn agi-btn-sm agi-btn-secondary">☑️ 全选</button>
+      <button id="agi-btn-delete-selected" class="agi-btn agi-btn-sm agi-btn-danger agi-hidden">🗑️ 删除选中</button>
       <button id="agi-btn-clear-all-boxes" class="agi-btn agi-btn-sm agi-btn-secondary">🗑️ 清除所有框</button>
     </div>
     <div class="agi-draw-hint" id="agi-draw-hint"></div>
@@ -1900,6 +1904,62 @@
     renderAnnotationBoxes();
     saveToCache();
     showStatus('🗑️ 已清除所有标注框', 'success');
+  }
+
+  // ========== V4.1: 批量删除框功能 ==========
+  var selectedBoxes = new Set();
+
+  function updateSelectionUI() {
+    var deleteBtn = document.getElementById('agi-btn-delete-selected');
+    if (deleteBtn) {
+      deleteBtn.classList.toggle('agi-hidden', selectedBoxes.size === 0);
+    }
+    var checkboxes = boxList.querySelectorAll('.agi-box-checkbox');
+    checkboxes.forEach(function(cb) {
+      var arrayIdx = parseInt(cb.dataset.arrayIdx);
+      cb.checked = selectedBoxes.has(arrayIdx);
+    });
+  }
+
+  function deleteSelectedBoxes() {
+    if (selectedBoxes.size === 0) return;
+    if (!confirm('确定删除选中的 ' + selectedBoxes.size + ' 个标注框？此操作不可撤销。')) return;
+    var indices = Array.from(selectedBoxes).sort(function(a, b) { return b - a; });
+    var affectedPages = new Set();
+    var deletedRefs = [];
+    indices.forEach(function(arrayIdx) {
+      if (arrayIdx < 0 || arrayIdx >= boxesData.length) return;
+      var box = boxesData[arrayIdx];
+      var pg = box.page !== undefined ? parseInt(box.page) : '';
+      if (isNaN(pg)) pg = '';
+      affectedPages.add(pg);
+      deletedRefs.push({ page: pg, index: box.index !== undefined ? String(box.index) : '' });
+      boxesData.splice(arrayIdx, 1);
+    });
+    boxesData.forEach(function(b) {
+      var bPage = b.attach_page !== undefined ? String(b.attach_page) : '-1';
+      var bIndex = b.attach_index !== undefined ? String(b.attach_index) : '-1';
+      if (bIndex === '-1') return;
+      var isOrphan = deletedRefs.some(function(ref) {
+        return bPage === String(ref.page) && bIndex === String(ref.index);
+      });
+      if (isOrphan) {
+        b.attach_index = '-1';
+        b.attach_page = '-1';
+        b.is_truncated = null;
+      }
+    });
+    affectedPages.forEach(function(page) {
+      renumberPageIndexes(page);
+    });
+    selectedBoxes.clear();
+    updateIndexDisplayFromData();
+    boxList.innerHTML = '';
+    renderAnnotationUI();
+    renderAnnotationBoxes();
+    saveToCache();
+    updateSelectionUI();
+    showStatus('🗑️ 已删除 ' + indices.length + ' 个标注框', 'success');
   }
 
   // ========== V3.9: index冲突处理（手动修改index后重新编号） ==========
@@ -3242,31 +3302,23 @@ function autoFixText(text, type) {
   }
 
   // V3.9: 收集关联关系，返回 arrayIdx -> [{page, index}] 格式
+  // V4.3: 基于全局 boxesData 收集关联，修复跨页 backward 关联不显示的问题
   function collectAttachRelations() {
-    var items = boxList.querySelectorAll('.agi-box-item');
-    var relations = {}; // arrayIdx -> [{page, index}] (V3.9: 包含目标 page 信息)
-    var itemByIndex = {}; // arrayIdx -> DOM item (V3.9: 使用 arrayIdx 作为 key)
-    var arrayIdxByIndex = {}; // arrayIdx -> arrayIdx (用于兼容)
-    items.forEach(function(item) {
-      var fieldIndex = parseInt(item.querySelector('.agi-field-index').value);
-      var arrayIdx = parseInt(item.dataset.index);
-      itemByIndex[arrayIdx] = item;
-      if (!isNaN(arrayIdx)) {
-        arrayIdxByIndex[arrayIdx] = arrayIdx;
-      }
-      // V3.9: 读取 attach_index 和 attach_page
-      var attachRaw = item.querySelector('.agi-field-attach-index').value.trim();
-      var attachPageRaw = item.querySelector('.agi-field-attach-page').value.trim();
-      var attachIndices = parseAttachValues(attachRaw);
-      var attachPages = parseAttachValues(attachPageRaw);
-      // V3.9: 只有当 attach_index 和 attach_page 都有效时才建立关联
-      if (attachIndices.length > 0 && attachPages.length > 0) {
-        relations[arrayIdx] = attachIndices.map(function(idx, i) {
-          // V3.9: 按位置匹配 attach_page，如果数量不匹配则使用最后一个有效的 page
-          var page = (i < attachPages.length) ? attachPages[i] : attachPages[attachPages.length - 1];
-          return { page: page, index: idx };
-        });
-      }
+    var relations = {}; // arrayIdx -> [{page, index}]
+    var itemByIndex = {}; // 保持兼容性（V4.3 不再从 DOM 读取）
+    var arrayIdxByIndex = {}; // 保持兼容性
+    boxesData.forEach(function(box, arrayIdx) {
+      var attachIndex = box.attach_index;
+      var attachPage = box.attach_page;
+      // V3.9: 跳过无效的 attach 信息
+      if (attachIndex === null || attachIndex === undefined || attachIndex === -1 || attachIndex === '-1') return;
+      if (attachPage === null || attachPage === undefined || attachPage === -1 || attachPage === '-1' || attachPage === '') return;
+      var attachIndices = (Array.isArray(attachIndex)) ? attachIndex.map(function(v) { return parseInt(v); }) : [parseInt(attachIndex)];
+      var attachPageNum = parseInt(attachPage);
+      if (isNaN(attachPageNum)) return;
+      relations[arrayIdx] = attachIndices.map(function(idx) {
+        return { page: attachPageNum, index: idx };
+      });
     });
     return { relations: relations, itemByIndex: itemByIndex, arrayIdxByIndex: arrayIdxByIndex };
   }
@@ -3417,6 +3469,8 @@ function autoFixText(text, type) {
       // V3.9: 读取 attach_index 和 attach_page，默认为 -1
       var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '-1';
       var fieldAttachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : '-1';
+      // V4.1: 读取 is_truncated 勾选状态
+      var fieldIsTruncated = (box.is_truncated === true);
 
       // 生成type选项，设置selected（空值时显示空选项）
       var typeOptionsHtml = '';
@@ -3439,6 +3493,7 @@ function autoFixText(text, type) {
       }).join('');
 
       boxEl.innerHTML = '<div class="agi-box-header">' +
+        '<input type="checkbox" class="agi-box-checkbox" data-array-idx="' + idx + '">' +
         '<span class="agi-box-title">' + typeLabel + ' #' + box.index + cwWarning + '<span class="agi-attach-badge"></span></span>' +
         '<span class="agi-box-coords">' + positionStr + '</span>' +
       '</div>' +
@@ -3480,7 +3535,7 @@ function autoFixText(text, type) {
                 '<input type="number" class="agi-field-attach-page" value="' + fieldAttachPage + '" placeholder="-1" min="-1" step="1" style="width:60px;">' +
               '</div>' +
               '<label class="agi-is-truncated-label agi-hidden" style="font-weight:normal;display:flex;align-items:center;gap:3px;">' +
-                '<input type="checkbox" class="agi-field-is-truncated"> is_truncated' +
+                '<input type="checkbox" class="agi-field-is-truncated"' + (fieldIsTruncated ? ' checked' : '') + '> is_truncated' +
               '</label>' +
             '</div>' +
           '</div>' +
@@ -3694,6 +3749,8 @@ function autoFixText(text, type) {
 
     // ========== 渲染分页导航 ==========
     renderPagination(allPages);
+    // V4.1: 同步选中状态到UI
+    updateSelectionUI();
   }
 
   // ========== 渲染分页导航 ==========
@@ -3720,6 +3777,7 @@ function autoFixText(text, type) {
     prevBtn.addEventListener('click', function() {
       if (currentPageIndex > 0) {
         panelCurrentPage = allPages[currentPageIndex - 1];
+        selectedBoxes.clear();
         renderAnnotationUI();
       }
     });
@@ -3735,6 +3793,7 @@ function autoFixText(text, type) {
     nextBtn.addEventListener('click', function() {
       if (currentPageIndex < allPages.length - 1) {
         panelCurrentPage = allPages[currentPageIndex + 1];
+        selectedBoxes.clear();
         renderAnnotationUI();
       }
     });
@@ -3960,8 +4019,16 @@ function buildResult() {
     }
     pageMap[pg].push(block);
   });
+  // V4.2: 对每页的 blocks 按 index 排序，确保导出 JSON 规范，重新导入后框号与 index 对齐
   var contents = pageOrder.map(function(pg) {
-    return { page: pg, blocks: pageMap[pg] };
+    var sortedBlocks = pageMap[pg].slice().sort(function(a, b) {
+      var idxA = parseInt(a.index);
+      var idxB = parseInt(b.index);
+      if (isNaN(idxA)) idxA = 0;
+      if (isNaN(idxB)) idxB = 0;
+      return idxA - idxB;
+    });
+    return { page: pg, blocks: sortedBlocks };
   });
 
   // V3.6: 使用导入的版本号，如果没有则默认 v3.0
@@ -4217,6 +4284,9 @@ function handleClearCache() {
 
     if (raw.version) item.version = raw.version;
 
+    // V4.1: 保留 attribute 引用，确保后续创建 box 时能正确读取 attach_info
+    item.attribute = attr;
+
     return item;
   }
 
@@ -4342,10 +4412,46 @@ function handleClearCache() {
   btnCancelDraw.addEventListener('click', function() {
     cancelDrawMode();
   });
-  btnClearAllBoxes.addEventListener('click', function() {
-    clearAllBoxes();
+btnClearAllBoxes.addEventListener('click', function() {
+  clearAllBoxes();
+});
+var btnSelectAll = document.getElementById('agi-btn-select-all');
+var btnDeleteSelected = document.getElementById('agi-btn-delete-selected');
+if (btnSelectAll) {
+  btnSelectAll.addEventListener('click', function() {
+    var currentPageItems = boxList.querySelectorAll('.agi-box-checkbox');
+    if (currentPageItems.length === 0) return;
+    var allChecked = Array.from(currentPageItems).every(function(cb) { return cb.checked; });
+    if (allChecked) {
+      currentPageItems.forEach(function(cb) {
+        var idx = parseInt(cb.dataset.arrayIdx);
+        selectedBoxes.delete(idx);
+      });
+    } else {
+      currentPageItems.forEach(function(cb) {
+        var idx = parseInt(cb.dataset.arrayIdx);
+        selectedBoxes.add(idx);
+      });
+    }
+    updateSelectionUI();
   });
-  polygonPointsInput.addEventListener('change', function() {
+}
+if (btnDeleteSelected) {
+  btnDeleteSelected.addEventListener('click', function() {
+    deleteSelectedBoxes();
+  });
+}
+boxList.addEventListener('change', function(e) {
+  if (!e.target.classList.contains('agi-box-checkbox')) return;
+  var arrayIdx = parseInt(e.target.dataset.arrayIdx);
+  if (e.target.checked) {
+    selectedBoxes.add(arrayIdx);
+  } else {
+    selectedBoxes.delete(arrayIdx);
+  }
+  updateSelectionUI();
+});
+polygonPointsInput.addEventListener('change', function() {
     var val = parseInt(this.value);
     if (val >= 3 && val <= 6) {
       polygonPointCount = val;
@@ -4796,7 +4902,7 @@ function handleClearCache() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V3.9（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V4.3（支持PDF）');
 
 })();
 </script>
