@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Benchmark V4.3 标注工具 V4.3</title>
+  <title>Benchmark V4.5 标注工具 V4.5</title>
   <!-- KaTeX CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -192,59 +192,30 @@
 }
 
 /* 滚动条按钮容器 - 与滚动条在同一列，一直显示 */
-.agi-scrollbar-controls {
-  position: absolute;
-  right: 0;
-  top: 10px;
-  bottom: 0;
-  width: 16px;
-  display: flex;
-  flex-direction: column;
-  z-index: 50;
-  pointer-events: none;
-}
-
-/* 上下箭头按钮样式 */
-.agi-scrollbar-btn {
-  width: 16px;
-  height: 16px;
-  min-height: 16px;
+/* 上下箭头按钮样式 - 位于面板标题栏 */
+.agi-panel-actions .agi-scrollbar-btn {
+  width: 28px;
+  height: 28px;
   border: none;
-  background: #e8e8e8;
+  background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
   padding: 0;
-  border-bottom: 1px solid #ccc;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.8);
 }
 
-.agi-scrollbar-btn:last-child {
-  border-bottom: none;
-  border-top: 1px solid #ccc;
+.agi-panel-actions .agi-scrollbar-btn:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
 }
 
-.agi-scrollbar-btn:hover {
-  background: #667eea;
-}
-
-.agi-scrollbar-btn:first-child {
-  border-radius: 4px 4px 0 0;
-}
-
-.agi-scrollbar-btn:last-child {
-  border-radius: 0 0 4px 4px;
-}
-
-.agi-scrollbar-btn svg {
-  width: 10px;
-  height: 10px;
-  fill: #555;
-}
-
-.agi-scrollbar-btn:hover svg {
-  fill: #fff;
+.agi-panel-actions .agi-scrollbar-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 /* 按钮组 */
@@ -981,8 +952,14 @@
 <!-- ========== 面板HTML ========== -->
 <div class="agi-panel" id="agi-panel">
   <div class="agi-panel-header">
-    <div class="agi-panel-title">🏷️ Benchmark V4.3 标注工具 <small>V4.3</small></div>
-    <div class="agi-panel-actions">
+    <div class="agi-panel-title">🏷️ Benchmark V4.5 标注工具 <small>V4.5</small></div>
+      <div class="agi-panel-actions">
+      <button class="agi-scrollbar-btn" id="agi-scroll-top-btn" title="一键到顶">
+        <svg viewBox="0 0 24 24"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+      </button>
+      <button class="agi-scrollbar-btn" id="agi-scroll-bottom-btn" title="一键到底">
+        <svg viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
+      </button>
       <button id="agi-btn-minimize" title="最小化">−</button>
       <button id="agi-btn-close" title="关闭">×</button>
     </div>
@@ -1018,8 +995,9 @@
     <div id="agi-result-area" class="agi-result-area agi-hidden">
       <div class="agi-result-header">
         <h3>标注结果 JSON</h3>
-        <button id="agi-btn-copy" class="agi-btn agi-btn-sm agi-btn-primary">复制</button>
-        <button id="agi-btn-close-result" class="agi-btn agi-btn-sm agi-btn-secondary">关闭</button>
+      <button id="agi-btn-copy" class="agi-btn agi-btn-sm agi-btn-primary">复制</button>
+      <button id="agi-btn-download" class="agi-btn agi-btn-sm agi-btn-primary">下载文件</button>
+      <button id="agi-btn-close-result" class="agi-btn agi-btn-sm agi-btn-secondary">关闭</button>
       </div>
       <textarea id="agi-result-json" class="agi-result-json" readonly></textarea>
     </div>
@@ -1027,15 +1005,6 @@
     <div id="agi-empty-state" class="agi-image-loading" style="padding:20px;text-align:center;color:#999;font-size:14px;display:none;">
       暂无标注数据<br>请通过导入或平台初始化加载
     </div>
-  </div>
-  <!-- 自定义滚动条控制按钮 - 与滚动条集成 -->
-  <div class="agi-scrollbar-controls" id="agi-scrollbar-controls">
-    <button class="agi-scrollbar-btn" id="agi-scroll-top-btn" title="一键到顶">
-      <svg viewBox="0 0 24 24"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
-    </button>
-    <button class="agi-scrollbar-btn" id="agi-scroll-bottom-btn" title="一键到底">
-      <svg viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
-    </button>
   </div>
   <div class="agi-panel-footer">
     <button id="agi-btn-zoom-out" class="agi-btn agi-btn-sm agi-btn-secondary" title="缩小">−</button>
@@ -1161,6 +1130,7 @@
   var resultArea = document.getElementById('agi-result-area');
   var resultJson = document.getElementById('agi-result-json');
   var btnCopy = document.getElementById('agi-btn-copy');
+  var btnDownload = document.getElementById('agi-btn-download');
   var btnCloseResult = document.getElementById('agi-btn-close-result');
   var btnZoomIn = document.getElementById('agi-btn-zoom-in');
   var btnZoomOut = document.getElementById('agi-btn-zoom-out');
@@ -1199,6 +1169,10 @@
       localStorage.setItem(key, JSON.stringify(value));
     } catch(e) {
       cacheStorage[key] = value;
+      // V4.4: 存储失败时通知用户
+      setTimeout(function() {
+        alert('⚠️ 本地保存失败：浏览器存储已满。\n\n您的数据暂时保存在内存中，但刷新页面后将丢失。\n\n请立即导出 JSON 备份！');
+      }, 100);
     }
   }
   
@@ -1906,7 +1880,7 @@
     showStatus('🗑️ 已清除所有标注框', 'success');
   }
 
-  // ========== V4.3: 批量删除框功能 ==========
+  // ========== V4.4: 批量删除框功能 ==========
   var selectedBoxes = new Set();
 
   function updateSelectionUI() {
@@ -3302,10 +3276,10 @@ function autoFixText(text, type) {
   }
 
   // V3.9: 收集关联关系，返回 arrayIdx -> [{page, index}] 格式
-  // V4.3: 基于全局 boxesData 收集关联，修复跨页 backward 关联不显示的问题
+  // V4.4: 基于全局 boxesData 收集关联，修复跨页 backward 关联不显示的问题
   function collectAttachRelations() {
     var relations = {}; // arrayIdx -> [{page, index}]
-    var itemByIndex = {}; // 保持兼容性（V4.3 不再从 DOM 读取）
+    var itemByIndex = {}; // 保持兼容性（V4.4 不再从 DOM 读取）
     var arrayIdxByIndex = {}; // 保持兼容性
     boxesData.forEach(function(box, arrayIdx) {
       var attachIndex = box.attach_index;
@@ -3469,7 +3443,7 @@ function autoFixText(text, type) {
       // V3.9: 读取 attach_index 和 attach_page，默认为 -1
       var fieldAttachIndex = (box.attach_index !== undefined && box.attach_index !== null) ? box.attach_index : '-1';
       var fieldAttachPage = (box.attach_page !== undefined && box.attach_page !== null) ? box.attach_page : '-1';
-      // V4.3: 读取 is_truncated 勾选状态
+      // V4.4: 读取 is_truncated 勾选状态
       var fieldIsTruncated = (box.is_truncated === true);
 
       // 生成type选项，设置selected（空值时显示空选项）
@@ -3682,6 +3656,14 @@ function autoFixText(text, type) {
           applyBoxGroupColors();
           toggleIsTruncatedVisibility(el);
         }
+        // type改变时重新检测text的问题
+        if (el.classList.contains('agi-field-type')) {
+          var boxItem = el.closest('.agi-box-item');
+          if (boxItem) {
+            var textArea = boxItem.querySelector('.agi-field-text');
+            if (textArea) updateIssues(textArea, boxItem);
+          }
+        }
       });
       el.addEventListener('input', debounce(function() {
         // 清除错误高亮
@@ -3749,7 +3731,7 @@ function autoFixText(text, type) {
 
     // ========== 渲染分页导航 ==========
     renderPagination(allPages);
-    // V4.3: 同步选中状态到UI
+    // V4.4: 同步选中状态到UI
     updateSelectionUI();
   }
 
@@ -4078,6 +4060,130 @@ function handleExport() {
   showStatus('📋 已生成JSON结果', 'info');
 }
 
+  // ========== 流式下载JSON文件 ==========
+  function handleDownload() {
+    // 第一步：同步 DOM 输入框值到 boxesData（与 handleExport 相同）
+    boxList.querySelectorAll('.agi-box-item').forEach(function(boxItem) {
+      var arrayIdx = parseInt(boxItem.dataset.index);
+      if (isNaN(arrayIdx) || !boxesData[arrayIdx]) return;
+      var box = boxesData[arrayIdx];
+      var inputs = boxItem.querySelectorAll('input, select, textarea');
+      inputs.forEach(function(el) {
+        if (el.classList.contains('agi-field-index')) box.index = parseInt(el.value) || 0;
+        else if (el.classList.contains('agi-field-page')) box.page = parseInt(el.value) || 0;
+        else if (el.classList.contains('agi-field-type')) box.type = el.value;
+        else if (el.classList.contains('agi-field-location')) box.location = el.value;
+        else if (el.classList.contains('agi-field-title-level')) { var _tl3 = parseInt(el.value); box.title_level = isNaN(_tl3) ? -1 : _tl3; }
+        else if (el.classList.contains('agi-field-attach-index')) box.attach_index = el.value;
+        else if (el.classList.contains('agi-field-attach-page')) box.attach_page = el.value;
+        else if (el.classList.contains('agi-field-text')) { box.description = el.value; box.text = el.value; }
+        else if (el.classList.contains('agi-field-is-truncated')) { box.is_truncated = el.checked; }
+      });
+    });
+
+    // 第二步：校验
+    var validation = validateRequiredFields();
+    if (!validation.valid) {
+      showStatus('❌ 导出失败：存在空字段\n' + validation.errors.join('\n'), 'error');
+      return;
+    }
+
+    // 第三步：流式构建 JSON 并直接下载
+    var chunks = [];
+
+    // 构建开头
+    chunks.push('{"agi_data_pdf_s3url":"' + (importedTopFields.agi_data_pdf_s3url || '') + '",');
+    chunks.push('"ocr_data_id":"' + (importedTopFields.ocr_data_id || '') + '",');
+    chunks.push('"meta_info":' + JSON.stringify(importedTopFields.meta_info || {}) + ',');
+    chunks.push('"pdf_id":"' + (importedTopFields.pdf_id || '') + '",');
+    chunks.push('"data_batch":"' + (importedTopFields.data_batch || '') + '",');
+    chunks.push('"annotation_ocr_result":{');
+    chunks.push('"update_time":"' + (fetchedTime || getLocalTimeString()) + '",');
+    chunks.push('"version":"' + (importedVersion || 'v3.0') + '",');
+    chunks.push('"contents":[');
+
+    // 按页分组
+    var pageMap = {};
+    var pageOrder = [];
+    boxesData.forEach(function(box) {
+      var pg = (box.page !== undefined && box.page !== null) ? parseInt(box.page) : 0;
+      if (!pageMap[pg]) {
+        pageMap[pg] = [];
+        pageOrder.push(pg);
+      }
+      pageMap[pg].push(box);
+    });
+
+    // 逐页构建
+    var isFirstPage = true;
+    pageOrder.forEach(function(pg) {
+      if (!isFirstPage) chunks.push(',');
+
+      var blocks = [];
+      pageMap[pg].forEach(function(box) {
+        var titleLevel = (box.title_level !== undefined && box.title_level !== null) ? box.title_level : -1;
+        var attachRaw = box.attach_index !== undefined ? String(box.attach_index) : '-1';
+        var attachVal = parseInt(attachRaw);
+        var attachIndex = isNaN(attachVal) ? -1 : attachVal;
+
+        var attachInfo;
+        if (attachIndex === -1) {
+          attachInfo = { attach_index: -1, attach_page: -1, is_truncated: null };
+        } else {
+          var attachPage = box.attach_page;
+          if (attachPage === null || attachPage === undefined || attachPage === '' || attachPage === '-1') {
+            attachPage = -1;
+          }
+          attachInfo = {
+            attach_index: attachIndex,
+            attach_page: parseInt(attachPage),
+            is_truncated: (box.is_truncated === true)
+          };
+        }
+
+        var attrObj = {
+          type: box.type || '',
+          location: box.location || '',
+          title_level: isNaN(titleLevel) ? -1 : titleLevel,
+          attach_info: attachInfo
+        };
+
+        blocks.push(JSON.stringify({
+          page: (box.page !== undefined && box.page !== null) ? parseInt(box.page) : 0,
+          index: (box.index !== undefined && box.index !== null) ? parseInt(box.index) : 0,
+          position: coordsToPosition(box.coords) || [],
+          attribute: attrObj,
+          text: (box.description || box.text || '').replace(/\r\n|\r|\n/g, '\\n').replace(/\t/g, '\\t')
+        }));
+      });
+
+      // 按 index 排序
+      blocks.sort(function(a, b) {
+        var idxA = parseInt(JSON.parse(a).index);
+        var idxB = parseInt(JSON.parse(b).index);
+        if (isNaN(idxA)) idxA = 0;
+        if (isNaN(idxB)) idxB = 0;
+        return idxA - idxB;
+      });
+
+      chunks.push('{"page":' + pg + ',"blocks":[' + blocks.join(',') + ']}');
+      isFirstPage = false;
+    });
+
+    chunks.push(']}}');
+
+    // 直接创建 Blob 下载
+    var blob = new Blob(chunks, {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'annotation_' + Date.now() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showStatus('📥 已下载 JSON 文件', 'info');
+  }
+
   // ========== 缓存操作 ==========
   function getCacheKey() {
     return 'agi_annotation_cache_v2';
@@ -4110,7 +4216,9 @@ function handleExport() {
         importedVersion: importedVersion,
         importedUpdateTime: importedUpdateTime,
         formData: formData,
-        version: 'v3.0',
+        panelCurrentPage: panelCurrentPage,
+        importedTopFields: importedTopFields,
+        version: 'v3.2',
         savedAt: getLocalTimeString()
       };
 
@@ -4129,6 +4237,22 @@ function handleExport() {
       fetchedTime = cache.fetchedTime;
       importedVersion = cache.importedVersion || '';
       importedUpdateTime = cache.importedUpdateTime || '';
+
+      // V4.5: 恢复 importedTopFields，修复刷新后 URL 字段为空的问题
+      importedTopFields = cache.importedTopFields || {
+        agi_data_pdf_s3url: '',
+        ocr_data_id: '',
+        meta_info: {},
+        pdf_id: '',
+        data_batch: ''
+      };
+
+      // V4.4: 恢复 panelCurrentPage，确保 formData 应用到正确的页面
+      if (cache.panelCurrentPage !== undefined) {
+        panelCurrentPage = cache.panelCurrentPage;
+      } else {
+        panelCurrentPage = 0;
+      }
 
       // 恢复图片
       if (imageUrl) {
@@ -4284,7 +4408,7 @@ function handleClearCache() {
 
     if (raw.version) item.version = raw.version;
 
-    // V4.3: 保留 attribute 引用，确保后续创建 box 时能正确读取 attach_info
+    // V4.4: 保留 attribute 引用，确保后续创建 box 时能正确读取 attach_info
     item.attribute = attr;
 
     return item;
@@ -4390,6 +4514,7 @@ function handleClearCache() {
       showStatus('✅ 已复制到剪贴板', 'success');
     });
   });
+  btnDownload.addEventListener('click', handleDownload);
   btnCloseResult.addEventListener('click', function() { resultArea.classList.add('agi-hidden'); });
   btnZoomIn.addEventListener('click', function() { setPanelZoom(panelZoom + 0.1); });
   btnZoomOut.addEventListener('click', function() { setPanelZoom(panelZoom - 0.1); });
@@ -4703,74 +4828,6 @@ polygonPointsInput.addEventListener('change', function() {
       fetchedTime = getLocalTimeString();
       renderAnnotationUI();
 
-      if (allBlocks.length > 0) {
-        var items = boxList.querySelectorAll('.agi-box-item');
-        allBlocks.forEach(function(raw, i) {
-          if (i >= items.length) return;
-          var item = normalizeItem(raw);
-          var el = items[i];
-
-          if (item.index !== undefined) el.querySelector('.agi-field-index').value = item.index;
-          if (item.page !== undefined) el.querySelector('.agi-field-page').value = item.page;
-
-          var typeSelect = el.querySelector('.agi-field-type');
-          for (var k = 0; k < typeSelect.options.length; k++) {
-            if (typeSelect.options[k].value === item.type) {
-              typeSelect.selectedIndex = k;
-              break;
-            }
-          }
-
-          var locSelect = el.querySelector('.agi-field-location');
-          for (var k2 = 0; k2 < locSelect.options.length; k2++) {
-            if (locSelect.options[k2].value === item.location) {
-              locSelect.selectedIndex = k2;
-              break;
-            }
-          }
-
-          el.querySelector('.agi-field-title-level').value = item.title_level;
-          var attachInput = el.querySelector('.agi-field-attach-index');
-          var importedAttachIndex = item.attach_index;
-          if (Array.isArray(item.attach_index)) {
-            attachInput.value = item.attach_index.join(', ');
-          } else {
-            attachInput.value = item.attach_index !== undefined && item.attach_index !== null ? item.attach_index : -1;
-          }
-
-          // 导入 attach_page（V3.6 新格式：attach_index=-1 时自动填充 -1）
-          var attachPageInput = el.querySelector('.agi-field-attach-page');
-          if (attachPageInput) {
-            if (importedAttachIndex === -1) {
-              attachPageInput.value = '-1';
-            } else {
-              attachPageInput.value = item.attach_page !== undefined && item.attach_page !== null ? item.attach_page : '-1';
-            }
-          }
-
-          // 导入 is_truncated 字段（attach_index ≠ -1 时）
-          var isTruncatedCheckbox = el.querySelector('.agi-field-is-truncated');
-          if (isTruncatedCheckbox && importedAttachIndex !== -1 && importedAttachIndex !== undefined && importedAttachIndex !== null) {
-            isTruncatedCheckbox.checked = (item.is_truncated === true);
-          }
-
-          if (item.text !== undefined) {
-            var ta = el.querySelector('.agi-field-text');
-            ta.value = item.text;
-            autoResizeTextarea(ta);
-            updateIssues(ta, el);
-          }
-
-          // V3.6: 导入 format_text（只读显示）
-          if (item.format_text !== undefined) {
-            var ftTa = el.querySelector('.agi-field-format-text');
-            if (ftTa) {
-              ftTa.value = item.format_text;
-              autoResizeTextarea(ftTa);
-            }
-          }
-        });
-      }
 
       // V3.6: 优先使用 annotation_ocr_result.update_time
       if (importedUpdateTime) {
@@ -4902,7 +4959,7 @@ polygonPointsInput.addEventListener('change', function() {
   checkUrlParams();
 
   // ========== 独立版初始化（无平台依赖） ==========
-  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V4.3（支持PDF）');
+  console.log('[Benchmark V3 标注工具] 已加载完成，版本 V4.5（支持PDF）');
 
 })();
 </script>
